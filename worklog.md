@@ -1,0 +1,32 @@
+---
+Task ID: setup-1
+Agent: main (Super Z)
+Task: Развернуть загруженный репозиторий Attached-Assets-main (Express + Vite + Drizzle/Postgres scaffold для системы «Цифровой обходной лист») в среде без внешнего Postgres и запустить приложение.
+
+Work Log:
+- Распаковал Attached-Assets-main.zip → /home/z/my-project/upload/extracted/Attached-Assets-main
+- Скопировал в /home/z/my-project/routing-sheet-app/
+- Установил pnpm глобально (npm install -g pnpm), затем pnpm install (564 пакета, ~3 минуты)
+- Пропатчил lib/db/src/index.ts: добавил ветку PGlite (in-process Postgres через WASM) — используется когда DATABASE_URL пустой или указывает на file:/путь. Реальный postgres:// по-прежнему работает через node-postgres. Использован top-level await для инициализации до экспорта db.
+- Добавил @electric-sql/pglite ^0.5.4 в lib/db/package.json
+- Создал artifacts/api-server/src/migrate.ts — применяет DDL (CREATE TABLE IF NOT EXISTS для всех 14 таблиц: users, branches, positions, candidates, offers, routing_sheets, routing_steps, audit_log, doctor_profiles, termination_sheets, termination_steps, integration_configs, sla_configs, notification_log, email_templates) к PGlite напрямую через pglite.exec()
+- Создал .env с DATABASE_URL=file:/home/z/my-project/db/routing-sheet-pglite, SESSION_SECRET, PORT=5000, VITE_API_URL
+- Пропатчил vite.config.ts: добавил server.proxy['/api'] → http://127.0.0.1:5000; смягчил требования PORT/BASE_PATH (дефолты 3000 и '/')
+- Пропатчил api-server/src/index.ts: PORT по умолчанию 5000 (вместо throw)
+- Добавил @electric-sql/pglite в build.mjs externals (WASM не бандлится esbuild'ом)
+- Запустил migrate.ts → все 14 таблиц созданы
+- Запустил seed.ts → 2 филиала, 3 позиции, 13 пользователей (все роли), 3 кандидата с офферами и маршрутными листами
+- Создал scripts/start.sh: запускает api-server (tsx) и Vite dev server через setsid+nohup, делает healthcheck'и
+- Запустил start.sh — оба сервера живы, /api/healthz возвращает ok, /api/auth/login работает (возвращает JWT), /api/dashboard/summary возвращает реальные данные из PGlite
+
+Stage Summary:
+- Приложение полностью запущено и работает через шлюз :81 (который автоматически пробрасывает на Vite :3000)
+- Все 4 задачи из ТЗ покрыты существующим кодом:
+  • Task 1 (Foundation + Hiring Routing Sheet MVP) — candidates, offers, routing sheets/steps, role auth, candidate public status page
+  • Task 2 (Doctor Branch + Offboarding) — doctor_profiles, termination_sheets/steps, 1-hour restore window, blocking doctor step
+  • Task 3 (Integrations & Notifications) — services/email.ts (Gmail via GAS), services/bitrix24.ts, services/messenger.ts (stub), services/sms.ts (stub), lib/scheduler.ts (SLA)
+  • Task 4 (Admin Panel & Configuration) — admin/users, branches, positions, email-templates, integrations (Bitrix24 mapping), audit-log, notification-log, termination-restore
+- БД: PGlite, файл в /home/z/my-project/db/routing-sheet-pglite (персистентный между перезапусками)
+- Логи: /tmp/api-server.log и /tmp/vite.log
+- Перезапуск: bash /home/z/my-project/routing-sheet-app/scripts/start.sh
+- Демо-аккаунты (пароль везде password123): admin@demo.ru, recruiter@demo.ru, hr@demo.ru, marketing@demo.ru, tb@demo.ru, it@demo.ru, audit@demo.ru, chief@demo.ru, account@demo.ru, accounting@demo.ru, security@demo.ru, adaptation@demo.ru, medtech@demo.ru

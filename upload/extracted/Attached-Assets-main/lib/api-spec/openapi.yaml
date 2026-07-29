@@ -1,0 +1,2545 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Цифровой обходной лист — Digital Routing Sheet HR system
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: branches
+    description: Branch management
+  - name: positions
+    description: Position reference
+  - name: candidates
+    description: Candidate management
+  - name: offers
+    description: Offer flow and candidate token access
+  - name: routing-sheets
+    description: Routing sheet management
+  - name: routing-steps
+    description: Routing step management
+  - name: dashboard
+    description: Dashboard and summary endpoints
+  - name: doctor-profiles
+    description: Doctor profile management (chief physician fills, account manager reads)
+  - name: termination
+    description: Offboarding / termination workflow
+  - name: admin
+    description: Admin-only configuration and audit endpoints
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ── Auth ──────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: JWT token and user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Users ─────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ── Branches ──────────────────────────────────────────
+  /branches:
+    get:
+      operationId: listBranches
+      tags: [branches]
+      summary: List all branches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of branches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Branch"
+    post:
+      operationId: createBranch
+      tags: [branches]
+      summary: Create a branch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchInput"
+      responses:
+        "201":
+          description: Created branch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+
+  /branches/{id}:
+    get:
+      operationId: getBranch
+      tags: [branches]
+      summary: Get branch by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Branch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+    patch:
+      operationId: updateBranch
+      tags: [branches]
+      summary: Update a branch
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchUpdate"
+      responses:
+        "200":
+          description: Updated branch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+
+  # ── Positions ─────────────────────────────────────────
+  /positions:
+    get:
+      operationId: listPositions
+      tags: [positions]
+      summary: List all positions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Position"
+    post:
+      operationId: createPosition
+      tags: [positions]
+      summary: Create a position
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PositionInput"
+      responses:
+        "201":
+          description: Created position
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Position"
+
+  /positions/{id}:
+    patch:
+      operationId: updatePosition
+      tags: [positions]
+      summary: Update a position
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PositionUpdate"
+      responses:
+        "200":
+          description: Updated position
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Position"
+    delete:
+      operationId: deletePosition
+      tags: [positions]
+      summary: Delete a position
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Candidates ────────────────────────────────────────
+  /candidates:
+    get:
+      operationId: listCandidates
+      tags: [candidates]
+      summary: List candidates with optional filters
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: number
+        - name: positionId
+          in: query
+          schema:
+            type: number
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CandidateWithSheet"
+    post:
+      operationId: createCandidate
+      tags: [candidates]
+      summary: Create a candidate card (recruiter)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateInput"
+      responses:
+        "201":
+          description: Created candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+
+  /candidates/{id}:
+    get:
+      operationId: getCandidate
+      tags: [candidates]
+      summary: Get candidate by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Candidate with full routing sheet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateCandidate
+      tags: [candidates]
+      summary: Update candidate info
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateUpdate"
+      responses:
+        "200":
+          description: Updated candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+
+  # ── Offers ────────────────────────────────────────────
+  /offers:
+    post:
+      operationId: createOffer
+      tags: [offers]
+      summary: Create and send an offer to a candidate
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferInput"
+      responses:
+        "201":
+          description: Offer created and sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferCreatedResponse"
+
+  /offers/by-token/{token}:
+    get:
+      operationId: getOfferByToken
+      tags: [offers]
+      summary: Get offer info by candidate token (no auth required)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Offer info for candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferPublic"
+        "404":
+          description: Token not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /offers/{id}/accept:
+    post:
+      operationId: acceptOffer
+      tags: [offers]
+      summary: Candidate clicks "Accept offer" — triggers OTP send
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptOfferInput"
+      responses:
+        "200":
+          description: OTP sent to candidate email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpSentResponse"
+
+  /offers/{id}/verify-otp:
+    post:
+      operationId: verifyOfferOtp
+      tags: [offers]
+      summary: Candidate verifies OTP to confirm offer acceptance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpInput"
+      responses:
+        "200":
+          description: Offer accepted, routing sheet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferAcceptedResponse"
+        "400":
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /offers/{id}/resend-token:
+    post:
+      operationId: resendOfferToken
+      tags: [offers]
+      summary: Re-issue the candidate access token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: New token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Offer"
+
+  # ── Routing Sheets ────────────────────────────────────
+  /routing-sheets:
+    get:
+      operationId: listRoutingSheets
+      tags: [routing-sheets]
+      summary: List routing sheets with optional filters
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: number
+        - name: positionId
+          in: query
+          schema:
+            type: number
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of routing sheets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutingSheet"
+
+  /routing-sheets/{id}:
+    get:
+      operationId: getRoutingSheet
+      tags: [routing-sheets]
+      summary: Get routing sheet with all steps
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Routing sheet with steps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingSheetDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /routing-sheets/{id}/close:
+    post:
+      operationId: closeRoutingSheet
+      tags: [routing-sheets]
+      summary: Recruiter closes the routing sheet (final step)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseSheetInput"
+      responses:
+        "200":
+          description: Sheet closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingSheet"
+
+  # ── Routing Steps ─────────────────────────────────────
+  /routing-steps:
+    get:
+      operationId: listRoutingSteps
+      tags: [routing-steps]
+      summary: List routing steps (filtered by routing_sheet_id or pending for current user)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: routingSheetId
+          in: query
+          schema:
+            type: number
+        - name: pending
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of routing steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutingStep"
+
+  /routing-steps/{id}:
+    get:
+      operationId: getRoutingStep
+      tags: [routing-steps]
+      summary: Get a routing step by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Routing step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingStep"
+
+  /routing-steps/{id}/complete:
+    post:
+      operationId: completeRoutingStep
+      tags: [routing-steps]
+      summary: Mark a routing step as completed (by the assigned role)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteStepInput"
+      responses:
+        "200":
+          description: Step completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingStep"
+        "403":
+          description: Not authorized to complete this step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /routing-steps/{id}/override:
+    post:
+      operationId: overrideRoutingStep
+      tags: [routing-steps]
+      summary: Manually confirm a step (recruiter/HR override when role is absent)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OverrideStepInput"
+      responses:
+        "200":
+          description: Step overridden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingStep"
+
+  # ── Candidate status page (token-based, no auth) ──────
+  /candidate-status/{token}:
+    get:
+      operationId: getCandidateStatus
+      tags: [offers]
+      summary: Get simplified routing sheet status for candidate (no auth, token-based)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Simplified status for candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateStatusPage"
+        "404":
+          description: Token not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Dashboard ─────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Overall dashboard summary — counts, statuses, recent activity
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/my-tasks:
+    get:
+      operationId: getMyTasks
+      tags: [dashboard]
+      summary: Pending routing steps assigned to the current user's role
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Pending tasks for current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutingStepWithContext"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Recent audit log entries
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+
+  # ── Object storage ────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [routing-steps]
+      summary: Request a presigned URL for photo upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlInput"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
+  # ── Doctor Profiles ───────────────────────────────────
+  /doctor-profiles/{routingSheetId}:
+    get:
+      operationId: getDoctorProfile
+      tags: [doctor-profiles]
+      summary: Get doctor profile for a routing sheet (chief physician writes, account manager reads)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: routingSheetId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Doctor profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoctorProfile"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: upsertDoctorProfile
+      tags: [doctor-profiles]
+      summary: Create or update doctor profile (chief physician only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: routingSheetId
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoctorProfileInput"
+      responses:
+        "200":
+          description: Doctor profile saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoctorProfile"
+
+  # ── Termination Sheets ────────────────────────────────
+  /termination-sheets:
+    get:
+      operationId: listTerminationSheets
+      tags: [termination]
+      summary: List termination sheets (filtered by status/branchId)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: branchId
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: List of termination sheets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TerminationSheetSummary"
+    post:
+      operationId: createTerminationSheet
+      tags: [termination]
+      summary: HR creates a termination sheet for an employee
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TerminationSheetInput"
+      responses:
+        "201":
+          description: Termination sheet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationSheetDetail"
+
+  /termination-sheets/{id}:
+    get:
+      operationId: getTerminationSheet
+      tags: [termination]
+      summary: Get termination sheet with all steps
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Termination sheet with steps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationSheetDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /termination-sheets/{id}/close:
+    post:
+      operationId: closeTerminationSheet
+      tags: [termination]
+      summary: HR closes a completed termination sheet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Termination sheet closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationSheetDetail"
+
+  /termination-sheets/{id}/restore:
+    post:
+      operationId: restoreTerminationSheet
+      tags: [termination]
+      summary: Admin restores a stopped/rejected termination sheet (within 1 hour of rejection)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Termination sheet restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationSheetDetail"
+        "403":
+          description: Restore window expired (>1 hour) or not admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Termination Steps ─────────────────────────────────
+  /termination-steps:
+    get:
+      operationId: listTerminationSteps
+      tags: [termination]
+      summary: List termination steps (pending=true for current user's role)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: terminationSheetId
+          in: query
+          schema:
+            type: number
+        - name: pending
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of termination steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TerminationStepWithContext"
+
+  /termination-steps/{id}:
+    get:
+      operationId: getTerminationStep
+      tags: [termination]
+      summary: Get a single termination step with context (authorized by role or admin/hr)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Termination step with context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationStepWithContext"
+        "403":
+          description: Not authorized to view this step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /termination-steps/{id}/approve:
+    post:
+      operationId: approveTerminationStep
+      tags: [termination]
+      summary: Approve a termination step (with optional comment)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveTerminationStepInput"
+      responses:
+        "200":
+          description: Step approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationStep"
+
+  /termination-steps/{id}/reject:
+    post:
+      operationId: rejectTerminationStep
+      tags: [termination]
+      summary: Reject a termination step — stops entire process
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectTerminationStepInput"
+      responses:
+        "200":
+          description: Step rejected, sheet stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationStep"
+
+  /termination-steps/{id}/override:
+    post:
+      operationId: overrideTerminationStep
+      tags: [termination]
+      summary: Admin or HR manually confirms a step when responsible role is absent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OverrideTerminationStepInput"
+      responses:
+        "200":
+          description: Step overridden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationStep"
+
+  # ── Integration Configs (admin) ──────────────────────
+  /integration-configs:
+    get:
+      operationId: listIntegrationConfigs
+      tags: [admin]
+      summary: List all integration config key-value pairs (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Integration configs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IntegrationConfig"
+
+  /integration-configs/{key}:
+    patch:
+      operationId: updateIntegrationConfig
+      tags: [admin]
+      summary: Update a config value (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationConfigUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConfig"
+
+  /sla-configs:
+    get:
+      operationId: listSlaConfigs
+      tags: [admin]
+      summary: List all SLA configs (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: SLA configs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SlaConfig"
+
+  /sla-configs/{stepType}:
+    patch:
+      operationId: updateSlaConfig
+      tags: [admin]
+      summary: Update SLA config for a step type (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stepType
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlaConfigUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlaConfig"
+
+  /notification-log:
+    get:
+      operationId: listNotificationLog
+      tags: [admin]
+      summary: Paginated notification log (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Notification log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationLogEntry"
+
+  # ── Email Templates (admin) ───────────────────────────
+  /email-templates:
+    get:
+      operationId: listEmailTemplates
+      tags: [admin]
+      summary: List all email templates (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Email templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmailTemplate"
+
+  /email-templates/{type}:
+    get:
+      operationId: getEmailTemplate
+      tags: [admin]
+      summary: Get a single email template (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Email template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateEmailTemplate
+      tags: [admin]
+      summary: Update an email template's subject and/or body (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailTemplateUpdate"
+      responses:
+        "200":
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+
+  # ── Audit Log (admin) ─────────────────────────────────
+  /audit-log:
+    get:
+      operationId: getAuditLog
+      tags: [admin]
+      summary: Paginated audit log with filters (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: actorId
+          in: query
+          schema:
+            type: number
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: objectType
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: number
+        - name: offset
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Audit log page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogPage"
+
+  # ── Admin Actions ─────────────────────────────────────
+  /admin/bitrix24/test:
+    post:
+      operationId: testBitrix24Connection
+      tags: [admin]
+      summary: Test Bitrix24 connection (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bitrix24TestResult"
+
+  # ── Termination Status Page (public) ──────────────────
+  /termination-status/{token}:
+    get:
+      operationId: getTerminationStatus
+      tags: [termination]
+      summary: Public tokenized status page for the terminated employee
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Termination status for employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationStatusPage"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    # ── Auth ─────────────────────────────────────────────
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ── Users ────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, fullName, email, role, isActive, createdAt]
+      properties:
+        id:
+          type: number
+        fullName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, recruiter, hr, marketing, tb, it, audit, chief_physician, account_manager, accounting, security, hr_adaptation, medical_engineer]
+        branchId:
+          type: number
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      required: [fullName, email, password, role]
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [admin, recruiter, hr, marketing, tb, it, audit, chief_physician, account_manager, accounting, security, hr_adaptation, medical_engineer]
+        branchId:
+          type: number
+
+    UserUpdate:
+      type: object
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [admin, recruiter, hr, marketing, tb, it, audit, chief_physician, account_manager, accounting, security, hr_adaptation, medical_engineer]
+        branchId:
+          type: number
+        isActive:
+          type: boolean
+
+    # ── Branches ─────────────────────────────────────────
+    Branch:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        chiefPhysicianId:
+          type: number
+        deputyChiefPhysicianId:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    BranchInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        chiefPhysicianId:
+          type: number
+        deputyChiefPhysicianId:
+          type: number
+
+    BranchUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        chiefPhysicianId:
+          type: number
+        deputyChiefPhysicianId:
+          type: number
+
+    # ── Positions ────────────────────────────────────────
+    Position:
+      type: object
+      required: [id, name, isDoctor, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        isDoctor:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    PositionInput:
+      type: object
+      required: [name, isDoctor]
+      properties:
+        name:
+          type: string
+        isDoctor:
+          type: boolean
+
+    PositionUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        isDoctor:
+          type: boolean
+
+    # ── Candidates ───────────────────────────────────────
+    Candidate:
+      type: object
+      required: [id, fullName, email, phone, offerStatus, createdAt]
+      properties:
+        id:
+          type: number
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        experience:
+          type: ["string", "null"]
+        education:
+          type: ["string", "null"]
+        certifications:
+          type: ["string", "null"]
+        offerStatus:
+          type: string
+          enum: [draft, sent, accepted, expired]
+        createdById:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    CandidateInput:
+      type: object
+      required: [fullName, email, phone]
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        experience:
+          type: string
+        education:
+          type: string
+        certifications:
+          type: string
+
+    CandidateUpdate:
+      type: object
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        experience:
+          type: string
+        education:
+          type: string
+        certifications:
+          type: string
+
+    CandidateWithSheet:
+      type: object
+      required: [id, fullName, email, phone, offerStatus, createdAt]
+      properties:
+        id:
+          type: number
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        offerStatus:
+          type: string
+          enum: [draft, sent, accepted, expired]
+        routingSheet:
+          $ref: "#/components/schemas/RoutingSheet"
+        createdAt:
+          type: string
+          format: date-time
+
+    CandidateDetail:
+      type: object
+      required: [id, fullName, email, phone, offerStatus, createdAt]
+      properties:
+        id:
+          type: number
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        experience:
+          type: ["string", "null"]
+        education:
+          type: ["string", "null"]
+        certifications:
+          type: ["string", "null"]
+        offerStatus:
+          type: string
+          enum: [draft, sent, accepted, expired]
+        createdById:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        routingSheet:
+          $ref: "#/components/schemas/RoutingSheetDetail"
+
+    # ── Offers ───────────────────────────────────────────
+    Offer:
+      type: object
+      required: [id, candidateId, sentById, status, createdAt]
+      properties:
+        id:
+          type: number
+        candidateId:
+          type: number
+        sentById:
+          type: number
+        status:
+          type: string
+          enum: [sent, otp_pending, accepted, expired]
+        token:
+          type: ["string", "null"]
+        tokenExpiresAt:
+          type: ["string", "null"]
+          format: date-time
+        acceptedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    OfferInput:
+      type: object
+      required: [candidateId, branchId, positionId]
+      properties:
+        candidateId:
+          type: number
+        branchId:
+          type: number
+        positionId:
+          type: number
+        message:
+          type: string
+
+    OfferPublic:
+      type: object
+      required: [id, candidateName, companyName, status]
+      properties:
+        id:
+          type: number
+        candidateName:
+          type: string
+        companyName:
+          type: string
+        status:
+          type: string
+          enum: [sent, otp_pending, accepted, expired]
+        message:
+          type: ["string", "null"]
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+
+    AcceptOfferInput:
+      type: object
+      required: [token, consentGiven]
+      properties:
+        token:
+          type: string
+        consentGiven:
+          type: boolean
+
+    VerifyOtpInput:
+      type: object
+      required: [token, otp]
+      properties:
+        token:
+          type: string
+        otp:
+          type: string
+
+    OfferCreatedResponse:
+      type: object
+      required: [id, candidateId, status, token, statusToken, routingSheetId, createdAt]
+      properties:
+        id:
+          type: number
+        candidateId:
+          type: number
+        status:
+          type: string
+          enum: [sent, otp_pending, accepted, expired]
+        token:
+          type: string
+        statusToken:
+          type: string
+        routingSheetId:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    OtpSentResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    OfferAcceptedResponse:
+      type: object
+      required: [message, routingSheetId, statusToken]
+      properties:
+        message:
+          type: string
+        routingSheetId:
+          type: number
+        statusToken:
+          type: string
+
+    # ── Routing Sheets ────────────────────────────────────
+    RoutingSheet:
+      type: object
+      required: [id, candidateId, branchId, positionId, isDoctor, status, createdAt]
+      properties:
+        id:
+          type: number
+        candidateId:
+          type: number
+        candidateName:
+          type: string
+        branchId:
+          type: number
+        branchName:
+          type: string
+        positionId:
+          type: number
+        positionName:
+          type: string
+        isDoctor:
+          type: boolean
+        status:
+          type: string
+          enum: [in_progress, completed, cancelled]
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    RoutingSheetDetail:
+      type: object
+      required: [id, candidateId, branchId, positionId, isDoctor, status, steps, createdAt]
+      properties:
+        id:
+          type: number
+        candidateId:
+          type: number
+        candidateName:
+          type: string
+        branchId:
+          type: number
+        branchName:
+          type: string
+        positionId:
+          type: number
+        positionName:
+          type: string
+        isDoctor:
+          type: boolean
+        status:
+          type: string
+          enum: [in_progress, completed, cancelled]
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutingStep"
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    CloseSheetInput:
+      type: object
+      required: [notes]
+      properties:
+        notes:
+          type: string
+
+    # ── Routing Steps ─────────────────────────────────────
+    RoutingStep:
+      type: object
+      required: [id, routingSheetId, stepType, assignedRole, status, isBackground, createdAt]
+      properties:
+        id:
+          type: number
+        routingSheetId:
+          type: number
+        stepType:
+          type: string
+          enum: [hr_registration, marketing_photo, tb_briefing, it_accounts, audit_training, doctor_profile, site_publication, final_review]
+        assignedRole:
+          type: string
+          enum: [admin, recruiter, hr, marketing, tb, it, audit, chief_physician, account_manager]
+        assignedUserId:
+          type: number
+        status:
+          type: string
+          enum: [pending, in_progress, completed, skipped]
+        isBackground:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        completedById:
+          type: number
+        completedByName:
+          type: ["string", "null"]
+        isOverride:
+          type: boolean
+        stepData:
+          type: ["object", "null"]
+          additionalProperties: true
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    RoutingStepWithContext:
+      type: object
+      required: [id, routingSheetId, stepType, assignedRole, status, candidateName, branchName, positionName, createdAt]
+      properties:
+        id:
+          type: number
+        routingSheetId:
+          type: number
+        stepType:
+          type: string
+          enum: [hr_registration, marketing_photo, tb_briefing, it_accounts, audit_training, doctor_profile, site_publication, final_review]
+        assignedRole:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, skipped]
+        candidateName:
+          type: string
+        branchName:
+          type: string
+        positionName:
+          type: string
+        isDoctor:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    CompleteStepInput:
+      type: object
+      required: [notes]
+      properties:
+        notes:
+          type: string
+        branchId:
+          type: number
+        positionId:
+          type: number
+        photoUrl:
+          type: string
+        stepData:
+          type: object
+          additionalProperties: true
+
+    OverrideStepInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    # ── Candidate status page ─────────────────────────────
+    CandidateStatusPage:
+      type: object
+      required: [candidateName, steps, overallStatus]
+      properties:
+        candidateName:
+          type: string
+        overallStatus:
+          type: string
+          enum: [in_progress, completed]
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandidateStepStatus"
+
+    CandidateStepStatus:
+      type: object
+      required: [stepType, label, status]
+      properties:
+        stepType:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed]
+
+    # ── Dashboard ─────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      required: [totalCandidates, inProgress, completed, byBranch, byStatus]
+      properties:
+        totalCandidates:
+          type: number
+        inProgress:
+          type: number
+        completed:
+          type: number
+        pendingMyAction:
+          type: number
+        byBranch:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        byStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        recentlyCompleted:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutingSheet"
+
+    CountByLabel:
+      type: object
+      required: [label, count]
+      properties:
+        label:
+          type: string
+        count:
+          type: number
+
+    AuditLogEntry:
+      type: object
+      required: [id, actorName, action, objectType, createdAt]
+      properties:
+        id:
+          type: number
+        actorName:
+          type: string
+        action:
+          type: string
+        objectType:
+          type: string
+        objectId:
+          type: number
+        details:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Doctor Profiles ───────────────────────────────────
+    DoctorProfile:
+      type: object
+      required: [id, routingSheetId, createdAt]
+      properties:
+        id:
+          type: number
+        routingSheetId:
+          type: number
+        experience:
+          type: ["number", "null"]
+        specialty:
+          type: ["string", "null"]
+        ageRestrictions:
+          type: ["string", "null"]
+        siteDiscounts:
+          type: ["string", "null"]
+        about:
+          type: ["string", "null"]
+        procedures:
+          type: ["array", "null"]
+          items:
+            type: string
+        photoUrl:
+          type: ["string", "null"]
+        createdById:
+          type: ["number", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    DoctorProfileInput:
+      type: object
+      properties:
+        experience:
+          type: number
+        specialty:
+          type: string
+        ageRestrictions:
+          type: string
+        siteDiscounts:
+          type: string
+        about:
+          type: string
+        procedures:
+          type: array
+          items:
+            type: string
+        photoUrl:
+          type: string
+
+    # ── Termination Sheets ────────────────────────────────
+    TerminationSheetInput:
+      type: object
+      required: [employeeFullName, branchId, positionId, terminationDate]
+      properties:
+        employeeFullName:
+          type: string
+        branchId:
+          type: number
+        positionId:
+          type: number
+        terminationDate:
+          type: string
+          format: date-time
+
+    TerminationSheetSummary:
+      type: object
+      required: [id, employeeFullName, branchId, positionId, isDoctor, terminationDate, initiatorName, status, createdAt]
+      properties:
+        id:
+          type: number
+        employeeFullName:
+          type: string
+        branchId:
+          type: number
+        branchName:
+          type: string
+        positionId:
+          type: number
+        positionName:
+          type: string
+        isDoctor:
+          type: boolean
+        terminationDate:
+          type: string
+          format: date-time
+        initiatorId:
+          type: number
+        initiatorName:
+          type: string
+        status:
+          type: string
+          enum: [in_progress, completed, rejected, stopped]
+        statusToken:
+          type: ["string", "null"]
+          description: Only included for admin/hr/recruiter roles
+        rejectedById:
+          type: ["number", "null"]
+        rejectedByName:
+          type: ["string", "null"]
+        rejectedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        stoppedAt:
+          type: ["string", "null"]
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    TerminationSheetDetail:
+      type: object
+      required: [id, employeeFullName, branchId, positionId, isDoctor, terminationDate, initiatorName, status, statusToken, steps, createdAt]
+      properties:
+        id:
+          type: number
+        employeeFullName:
+          type: string
+        branchId:
+          type: number
+        branchName:
+          type: string
+        positionId:
+          type: number
+        positionName:
+          type: string
+        isDoctor:
+          type: boolean
+        terminationDate:
+          type: string
+          format: date-time
+        initiatorId:
+          type: number
+        initiatorName:
+          type: string
+        status:
+          type: string
+          enum: [in_progress, completed, rejected, stopped]
+        statusToken:
+          type: string
+        rejectedById:
+          type: ["number", "null"]
+        rejectedByName:
+          type: ["string", "null"]
+        rejectedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        stoppedAt:
+          type: ["string", "null"]
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/TerminationStep"
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Termination Steps ─────────────────────────────────
+    TerminationStep:
+      type: object
+      required: [id, terminationSheetId, stepType, assignedRole, status, isBlocking, createdAt]
+      properties:
+        id:
+          type: number
+        terminationSheetId:
+          type: number
+        stepType:
+          type: string
+          enum: [chief_physician_off, it_revocation, marketing_off, accounting_off, security_off, hr_exit_interview, hr_close, medical_equipment_off, account_manager_delete_profile]
+        assignedRole:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, skipped]
+        isBlocking:
+          type: boolean
+        comment:
+          type: ["string", "null"]
+        exitInterviewNotes:
+          type: ["string", "null"]
+        completedById:
+          type: ["number", "null"]
+        completedByName:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    TerminationStepWithContext:
+      type: object
+      required: [id, terminationSheetId, stepType, assignedRole, status, isBlocking, employeeFullName, branchName, createdAt]
+      properties:
+        id:
+          type: number
+        terminationSheetId:
+          type: number
+        stepType:
+          type: string
+        assignedRole:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, skipped]
+        isBlocking:
+          type: boolean
+        employeeFullName:
+          type: string
+        branchName:
+          type: string
+        positionName:
+          type: string
+        isDoctor:
+          type: boolean
+        comment:
+          type: ["string", "null"]
+        exitInterviewNotes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ApproveTerminationStepInput:
+      type: object
+      properties:
+        comment:
+          type: string
+        exitInterviewNotes:
+          type: string
+
+    RejectTerminationStepInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    OverrideTerminationStepInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    TerminationStatusPage:
+      type: object
+      required: [employeeFullName, status, steps]
+      properties:
+        employeeFullName:
+          type: string
+        status:
+          type: string
+          enum: [in_progress, completed, rejected, stopped]
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/TerminationPublicStep"
+
+    TerminationPublicStep:
+      type: object
+      required: [stepType, label, status]
+      properties:
+        stepType:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, skipped]
+
+    # ── Integration / Admin schemas ───────────────────────
+    IntegrationConfig:
+      type: object
+      required: [id, key, updatedAt]
+      properties:
+        id:
+          type: number
+        key:
+          type: string
+        value:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+
+    IntegrationConfigUpdate:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: ["string", "null"]
+
+    SlaConfig:
+      type: object
+      required: [id, stepType, sheetKind, slaHours, escalationHours, updatedAt]
+      properties:
+        id:
+          type: number
+        stepType:
+          type: string
+        sheetKind:
+          type: string
+        slaHours:
+          type: number
+        escalationHours:
+          type: number
+        supervisorRole:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+
+    SlaConfigUpdate:
+      type: object
+      properties:
+        slaHours:
+          type: number
+        escalationHours:
+          type: number
+        supervisorRole:
+          type: string
+
+    NotificationLogEntry:
+      type: object
+      required: [id, channel, recipient, subject, status, createdAt]
+      properties:
+        id:
+          type: number
+        channel:
+          type: string
+        recipient:
+          type: string
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [sent, failed, skipped]
+        errorMessage:
+          type: ["string", "null"]
+        objectType:
+          type: ["string", "null"]
+        objectId:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    EmailTemplate:
+      type: object
+      required: [id, templateType, subject, bodyHtml, updatedAt]
+      properties:
+        id:
+          type: number
+        templateType:
+          type: string
+        subject:
+          type: string
+        bodyHtml:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: ["string", "null"]
+        variables:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+
+    EmailTemplateUpdate:
+      type: object
+      properties:
+        subject:
+          type: string
+        bodyHtml:
+          type: string
+
+    AuditLogPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogEntry"
+        total:
+          type: number
+        limit:
+          type: number
+        offset:
+          type: number
+
+    Bitrix24TestResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+
+    # ── Object storage ────────────────────────────────────
+    UploadUrlInput:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+        size:
+          type: number
+        contentType:
+          type: string
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
