@@ -81,7 +81,7 @@ export function notifyOfferSent(opts: {
       if (!candidate?.email) return;
 
       const baseUrl = await getAppBaseUrl();
-      const offerLink = `${baseUrl}/routing-sheet/offer/${opts.offerToken}`;
+      const offerLink = `${baseUrl}/offer/${opts.offerToken}`;
 
       const tpl = await renderOfferInvitationEmail({
         candidateName: candidate.fullName,
@@ -161,7 +161,7 @@ export function notifyOfferAccepted(opts: {
       if (!candidate) return;
 
       const baseUrl = await getAppBaseUrl();
-      const statusLink = `${baseUrl}/routing-sheet/status/${opts.statusToken}`;
+      const statusLink = `${baseUrl}/status/${opts.statusToken}`;
 
       // Confirmation to candidate
       const confirmTpl = await renderSheetConfirmationEmail({
@@ -177,7 +177,7 @@ export function notifyOfferAccepted(opts: {
       });
 
       // Task assignment to each role
-      const taskLink = `${baseUrl}/routing-sheet/my-tasks`;
+      const taskLink = `${baseUrl}/my-tasks`;
       for (const step of opts.steps) {
         if (step.stepType === "doctor_profile" || step.stepType === "site_publication") continue; // background, notified separately
         const stepLabel = ROUTING_STEP_LABELS[step.stepType] ?? step.stepType;
@@ -256,7 +256,7 @@ export function notifyTerminationCreated(opts: {
   fireAndForget(
     (async () => {
       const baseUrl = await getAppBaseUrl();
-      const taskLink = `${baseUrl}/routing-sheet/termination-tasks`;
+      const taskLink = `${baseUrl}/termination-tasks`;
 
       for (const step of opts.steps) {
         const stepLabel = TERMINATION_STEP_LABELS[step.stepType] ?? step.stepType;

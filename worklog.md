@@ -30,3 +30,24 @@ Stage Summary:
 - Логи: /tmp/api-server.log и /tmp/vite.log
 - Перезапуск: bash /home/z/my-project/routing-sheet-app/scripts/start.sh
 - Демо-аккаунты (пароль везде password123): admin@demo.ru, recruiter@demo.ru, hr@demo.ru, marketing@demo.ru, tb@demo.ru, it@demo.ru, audit@demo.ru, chief@demo.ru, account@demo.ru, accounting@demo.ru, security@demo.ru, adaptation@demo.ru, medtech@demo.ru
+
+---
+Task ID: fix-links-1
+Agent: main (Super Z)
+Task: Починить ссылки в письмах — пользователь сообщил что ссылка имеет вид `http://localhost:5000/routing-sheet/offer/<token>` (битый хост + лишний префикс).
+
+Work Log:
+- Нашёл две проблемы:
+  1. getAppBaseUrl() в services/email.ts возвращал `http://localhost:5000` (порт API-сервера, не фронтенда), если app_base_url не задан в БД.
+  2. lib/notifications.ts собирал все ссылки с префиксом `/routing-sheet/` (`/routing-sheet/offer/...`, `/routing-sheet/status/...`, `/routing-sheet/my-tasks`, `/routing-sheet/termination-tasks`), а фронтенд в App.tsx ждёт маршруты без префикса: `/offer/:token`, `/status/:token`, `/my-tasks`, `/termination-tasks`.
+- Поправил notifications.ts — убрал `/routing-sheet/` из всех 4 ссылок.
+- Поправил getAppBaseUrl() — добавил приоритет: 1) DB-конфиг `app_base_url` → 2) env `PUBLIC_BASE_URL` → 3) Replit dev domain → 4) `http://localhost:3000` (фронтенд, не API).
+- Прописал `PUBLIC_BASE_URL=https://preview-zai-web.space-z.ai` в .env.
+- Перезапустил api-server (Vite не трогал — фронтенд не менялся).
+- Создал artifacts/api-server/scripts/preview-links.ts — выводит все виды ссылок (offer, status, my-tasks, termination-tasks, termination-status) с реальными токенами из БД, чтобы убедиться что фикса работает.
+
+Stage Summary:
+- Ссылки теперь формируются правильно: `https://preview-zai-web.space-z.ai/offer/<token>` вместо `http://localhost:5000/routing-sheet/offer/<token>`.
+- Старые письма (отправленные до фикса) — останутся битыми, но новые офферы дают правильные ссылки.
+- Проверено на оффере fd6d4d1f-c797-4c82-9267-641c666c40ed (Offer #68) — ссылка теперь: https://preview-zai-web.space-z.ai/offer/fd6d4d1f-c797-4c82-9267-641c666c40ed
+- Для прод-окружения нужно либо оставить PUBLIC_BASE_URL в env, либо (лучше) зайти в админку → Integrations и задать app_base_url там — это перебьёт env.

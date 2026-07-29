@@ -120,11 +120,17 @@ export async function sendEmail(opts: SendEmailOpts): Promise<void> {
 // ─── App base URL helper ─────────────────────────────────────────────────────
 
 export async function getAppBaseUrl(): Promise<string> {
+  // 1. Highest priority: admin-configured value in integration_configs
   const configured = await getConfig("app_base_url");
   if (configured) return configured.replace(/\/$/, "");
+  // 2. Env var (set at deploy time — e.g. PUBLIC_BASE_URL=https://preview-zai-web.space-z.ai)
+  const envUrl = process.env["PUBLIC_BASE_URL"];
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  // 3. Replit dev domain (legacy scaffold behaviour)
   const dev = process.env["REPLIT_DEV_DOMAIN"];
   if (dev) return `https://${dev}`;
-  return "http://localhost:" + (process.env["PORT"] ?? "8080");
+  // 4. Last-resort fallback — the frontend dev server (NOT the API port)
+  return "http://localhost:3000";
 }
 
 // ─── DB-driven template cache ─────────────────────────────────────────────────
