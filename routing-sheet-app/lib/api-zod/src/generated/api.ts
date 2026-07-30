@@ -272,9 +272,18 @@ export const ListCandidatesQueryParams = zod.object({
 
 export const ListCandidatesResponseItem = zod.object({
   "id": zod.number(),
+  "lastName": zod.string(),
+  "firstName": zod.string(),
+  "middleName": zod.string().nullish(),
   "fullName": zod.string(),
   "email": zod.string(),
   "phone": zod.string(),
+  "iin": zod.string(),
+  "birthDate": zod.string().nullish(),
+  "gender": zod.enum(['male', 'female']).nullish(),
+  "experience": zod.string().nullish(),
+  "education": zod.string().nullish(),
+  "certifications": zod.string().nullish(),
   "offerStatus": zod.enum(['draft', 'sent', 'accepted', 'expired']),
   "routingSheet": zod.object({
   "id": zod.number(),
@@ -298,9 +307,12 @@ export const ListCandidatesResponse = zod.array(ListCandidatesResponseItem)
  * @summary Create a candidate card (recruiter)
  */
 export const CreateCandidateBody = zod.object({
-  "fullName": zod.string(),
+  "lastName": zod.string(),
+  "firstName": zod.string(),
+  "middleName": zod.string().optional(),
   "email": zod.string(),
   "phone": zod.string(),
+  "iin": zod.string(),
   "experience": zod.string().optional(),
   "education": zod.string().optional(),
   "certifications": zod.string().optional()
@@ -308,9 +320,15 @@ export const CreateCandidateBody = zod.object({
 
 export const CreateCandidateResponse = zod.object({
   "id": zod.number(),
+  "lastName": zod.string(),
+  "firstName": zod.string(),
+  "middleName": zod.string().nullish(),
   "fullName": zod.string(),
   "email": zod.string(),
   "phone": zod.string(),
+  "iin": zod.string(),
+  "birthDate": zod.string().nullish(),
+  "gender": zod.enum(['male', 'female']).nullish(),
   "experience": zod.string().nullish(),
   "education": zod.string().nullish(),
   "certifications": zod.string().nullish(),
@@ -329,9 +347,15 @@ export const GetCandidateParams = zod.object({
 
 export const GetCandidateResponse = zod.object({
   "id": zod.number(),
+  "lastName": zod.string(),
+  "firstName": zod.string(),
+  "middleName": zod.string().nullish(),
   "fullName": zod.string(),
   "email": zod.string(),
   "phone": zod.string(),
+  "iin": zod.string(),
+  "birthDate": zod.string().nullish(),
+  "gender": zod.enum(['male', 'female']).nullish(),
   "experience": zod.string().nullish(),
   "education": zod.string().nullish(),
   "certifications": zod.string().nullish(),
@@ -380,9 +404,12 @@ export const UpdateCandidateParams = zod.object({
 })
 
 export const UpdateCandidateBody = zod.object({
-  "fullName": zod.string().optional(),
+  "lastName": zod.string().optional(),
+  "firstName": zod.string().optional(),
+  "middleName": zod.string().optional(),
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
+  "iin": zod.string().optional(),
   "experience": zod.string().optional(),
   "education": zod.string().optional(),
   "certifications": zod.string().optional()
@@ -390,9 +417,15 @@ export const UpdateCandidateBody = zod.object({
 
 export const UpdateCandidateResponse = zod.object({
   "id": zod.number(),
+  "lastName": zod.string(),
+  "firstName": zod.string(),
+  "middleName": zod.string().nullish(),
   "fullName": zod.string(),
   "email": zod.string(),
   "phone": zod.string(),
+  "iin": zod.string(),
+  "birthDate": zod.string().nullish(),
+  "gender": zod.enum(['male', 'female']).nullish(),
   "experience": zod.string().nullish(),
   "education": zod.string().nullish(),
   "certifications": zod.string().nullish(),

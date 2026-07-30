@@ -7,9 +7,12 @@
  */
 
 export interface CandidateUpdate {
-  fullName?: string;
+  lastName?: string;
+  firstName?: string;
+  middleName?: string | null;
   email?: string;
   phone?: string;
+  iin?: string;
   experience?: string;
   education?: string;
   certifications?: string;

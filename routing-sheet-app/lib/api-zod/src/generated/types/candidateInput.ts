@@ -7,9 +7,12 @@
  */
 
 export interface CandidateInput {
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleName?: string;
   email: string;
   phone: string;
+  iin: string;
   experience?: string;
   education?: string;
   certifications?: string;

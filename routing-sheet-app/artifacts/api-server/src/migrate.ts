@@ -41,9 +41,15 @@ CREATE TABLE IF NOT EXISTS positions (
 
 CREATE TABLE IF NOT EXISTS candidates (
   id SERIAL PRIMARY KEY,
+  last_name TEXT NOT NULL,
+  first_name TEXT NOT NULL,
+  middle_name TEXT,
   full_name TEXT NOT NULL,
   email TEXT NOT NULL,
   phone TEXT NOT NULL,
+  iin TEXT NOT NULL UNIQUE,
+  birth_date DATE,
+  gender TEXT,
   experience TEXT,
   education TEXT,
   certifications TEXT,

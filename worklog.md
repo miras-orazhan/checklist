@@ -96,3 +96,42 @@ Stage Summary:
 - Статус-страница увольнения: https://preview-zai-web.space-z.ai/termination-status/<token> — то же самое, плюс блок-описание.
 - Кабинеты сейчас захардкожены в routingStepMeta.ts/terminationStepMeta.ts — это дефолт для всех филиалов. Если позже понадобится per-branch кастомизация, можно добавить оверрайды через integration_configs (ключ вида `step_meta.<stepType>.cabinet`).
 - Старые ссылки на кабинеты нужно будет подкорректировать под реальные планы помещений клиники — я использовал вымышленные номера.
+
+---
+Task ID: candidate-iin-1
+Agent: main (Super Z)
+Task: Изменить форму создания кандидата: раздельные ФИО + ИИН (из которого автоматически определяется дата рождения и пол). Данные образования/опыта/курсов должны видеть главврач и аккаунт-менеджер.
+
+Work Log:
+- Расширил lib/db/src/schema/candidates.ts: добавил поля lastName, firstName, middleName, iin, birthDate, gender. Поле fullName осталось (вычисляется из трёх частей) для совместимости с шаблонами писем и существующими отчётами.
+- Создал lib/iin.ts — парсер казахстанского ИИН (12 цифр): извлекает дату рождения (YYMMDD), век+пол (7-я цифра: 1/3/5 = муж 1800/1900/2000s, 2/4/6 = жен), проверяет контрольный разряд по официальному алгоритму (весовые коэффициенты [1..11], второй проход [3,4..2] если первый дал 10).
+- Создал lib/iin-generator.ts — обратная функция для seed.ts: генерирует валидные ИИН с правильным контрольным разрядом.
+- Обновил routes/candidates.ts: POST /candidates — валидирует ИИН через parseIin(), возвращает 400 при невалидном ИИН, 409 при дубликате. Авто-вычисляет fullName, birthDate, gender. Все эндпоинты (GET list, GET by id, POST, PATCH) возвращают новые поля.
+- Обновил routes/doctor-profiles.ts: GET /doctor-profiles/:id теперь возвращает { profile, candidate, routingSheet } вместо просто профиля. Candidate содержит education/experience/certifications — теперь главврач и аккаунт-менеджер видят профессиональные данные, которые ввёл рекрутер.
+- Обновил migrate.ts — схема candidates теперь включает все новые поля (last_name, first_name, middle_name, full_name, iin UNIQUE, birth_date, gender).
+- Обновил seed.ts — 3 демо-кандидата с валидными ИИН (генерируются через generateIin) и реалистичными данными образования/опыта/сертификатов.
+- Обновил lib/api-zod/.../api.ts — Zod-схемы CreateCandidateBody, UpdateCandidateBody, GetCandidateResponse, CreateCandidateResponse, UpdateCandidateResponse, ListCandidatesResponseItem приведены в соответствие с новой схемой.
+- Обновил lib/api-zod/.../types/*.ts — TypeScript-типы CandidateInput, CandidateUpdate, Candidate, CandidateDetail, CandidateWithSheet.
+- Обновил pages/candidates/new.tsx: форма теперь собирает lastName/firstName/middleName раздельно + ИИН. Live-превью даты рождения и пола из ИИН (зеркалит серверную логику parseIin, чтобы показывать ошибки до отправки). Опыт/образование/курсы — в отдельных текстовых полях.
+- Обновил pages/candidates/[id].tsx: показывает раздельные ФИО, ИИН, дату рождения, пол, опыт, образование, сертификаты.
+- Обновил pages/candidates/index.tsx: поиск теперь включает ИИН.
+- Обновил pages/doctor-profile/[routingSheetId].tsx: добавил отдельную карточку «Данные кандидата» с раздельными ФИО, ИИН, датой рождения, полом, образованием, опытом, сертификатами. Главврач видит их как контекст при заполнении профиля врача; аккаунт-менеджер — перед публикацией.
+- Пересоздал БД (новая схема) + миграции + seed. Перезапустил api-server.
+- Тесты:
+  • parseIin('900515400014') → birthDate=1990-05-15, gender=female, valid=true ✓
+  • parseIin('820923300029') → birthDate=1982-09-23, gender=male, valid=true ✓
+  • parseIin('123456789012') → valid=false, error="Неверный 7-й разряд ИИН (век/пол)" ✓
+  • POST /candidates с дублирующим ИИН → 409 "Кандидат с таким ИИН уже существует" ✓
+  • POST /candidates с невалидным ИИН → 400 "Неверный 7-й разряд ИИН (век/пол)" ✓
+  • GET /candidates → возвращает lastName/firstName/middleName/fullName/iin/birthDate/gender/education/experience/certifications ✓
+  • GET /doctor-profiles/2 → возвращает { profile: null, candidate: {...все поля...}, routingSheet: {...} } ✓
+
+Stage Summary:
+- Форма создания кандидата теперь собирает: Фамилия, Имя, Отчество (раздельно), Email, Телефон, ИИН, Опыт работы, Образование, Сертификаты/курсы. Дата рождения и пол автоматически выводятся из ИИН в live-режиме.
+- ИИН проходит тройную валидацию: формат (12 цифр) → корректность даты → контрольный разряд по официальному KZ-алгоритму.
+- На странице кандидата и в списке видны раздельные ФИО, ИИН, дата рождения, пол.
+- На странице DoctorProfile (главврач, аккаунт-менеджер) добавлена карточка «Данные кандидата» с образованием, опытом, сертификатами, ИИН, датой рождения и полом — то, что вы просили «видеть глав врачу и аккаунт менеджеру».
+- Демо-аккаунты те же. Ссылки на статусы:
+  • Татьяна Фёдорова: https://preview-zai-web.space-z.ai/status/61e21ea6-23ca-4d1a-976f-836bcff6cbc5
+  • Илья Громов (врач): https://preview-zai-web.space-z.ai/status/ba94fbb4-783d-42db-b3f7-0a6be0dc7443
+  • Светлана Ким: https://preview-zai-web.space-z.ai/status/70e18388-6c14-4536-9c2a-165c861de8f1

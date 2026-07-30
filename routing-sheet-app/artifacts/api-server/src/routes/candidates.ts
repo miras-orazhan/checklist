@@ -3,8 +3,36 @@ import { db, candidatesTable, routingSheetsTable, branchesTable, positionsTable,
 import { eq, ilike, and, SQL } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { CreateCandidateBody, UpdateCandidateBody } from "@workspace/api-zod";
+import { parseIin } from "../lib/iin";
 
 export const candidatesRouter = Router();
+
+/** Build the canonical full-name string from three parts. */
+function buildFullName(lastName: string, firstName: string, middleName?: string | null): string {
+  return [lastName, firstName, middleName].filter(Boolean).join(" ").trim();
+}
+
+/** Shape a candidate row for API responses. */
+function serializeCandidate(c: typeof candidatesTable.$inferSelect) {
+  return {
+    id: c.id,
+    lastName: c.lastName,
+    firstName: c.firstName,
+    middleName: c.middleName ?? null,
+    fullName: c.fullName,
+    email: c.email,
+    phone: c.phone,
+    iin: c.iin,
+    birthDate: c.birthDate ?? null,
+    gender: c.gender ?? null,
+    experience: c.experience ?? null,
+    education: c.education ?? null,
+    certifications: c.certifications ?? null,
+    offerStatus: c.offerStatus,
+    createdById: c.createdById ?? null,
+    createdAt: c.createdAt,
+  };
+}
 
 /** Build a RoutingSheet object (no steps, matches RoutingSheet schema) */
 async function getRoutingSheetForCandidate(candidateId: number) {
@@ -64,11 +92,15 @@ candidatesRouter.get("/candidates", requireAuth, async (req, res): Promise<void>
 
   let rows = await db.select().from(candidatesTable);
 
-  // Text search filter
+  // Text search filter — matches against fullName (derived) OR email OR iin
   if (search) {
+    const q = search.toLowerCase();
     rows = rows.filter(c =>
-      c.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase())
+      c.fullName.toLowerCase().includes(q) ||
+      c.lastName.toLowerCase().includes(q) ||
+      c.firstName.toLowerCase().includes(q) ||
+      c.email.toLowerCase().includes(q) ||
+      c.iin.includes(q)
     );
   }
 
@@ -91,16 +123,7 @@ candidatesRouter.get("/candidates", requireAuth, async (req, res): Promise<void>
 
   // Enrich each candidate with their routing sheet (no steps needed for list)
   const result = await Promise.all(rows.map(async (c) => ({
-    id: c.id,
-    fullName: c.fullName,
-    email: c.email,
-    phone: c.phone,
-    experience: c.experience ?? null,
-    education: c.education ?? null,
-    certifications: c.certifications ?? null,
-    offerStatus: c.offerStatus,
-    createdById: c.createdById ?? null,
-    createdAt: c.createdAt,
+    ...serializeCandidate(c),
     routingSheet: await getRoutingSheetForCandidate(c.id),
   })));
 
@@ -109,23 +132,44 @@ candidatesRouter.get("/candidates", requireAuth, async (req, res): Promise<void>
 
 candidatesRouter.post("/candidates", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateCandidateBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid request body" }); return; }
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+
+  const { lastName, firstName, middleName, email, phone, iin, experience, education, certifications } = parsed.data as any;
+
+  // Validate IIN and derive birthDate + gender
+  const parsedIin = parseIin(iin);
+  if (!parsedIin.valid) {
+    res.status(400).json({ error: parsedIin.error ?? "Неверный ИИН" });
+    return;
+  }
+
+  // Check for duplicate IIN
+  const existing = await db.select({ id: candidatesTable.id }).from(candidatesTable).where(eq(candidatesTable.iin, iin));
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Кандидат с таким ИИН уже существует" });
+    return;
+  }
+
   const [candidate] = await db.insert(candidatesTable).values({
-    ...parsed.data,
+    lastName,
+    firstName,
+    middleName: middleName ?? null,
+    fullName: buildFullName(lastName, firstName, middleName),
+    email,
+    phone,
+    iin,
+    birthDate: parsedIin.birthDate,
+    gender: parsedIin.gender,
+    experience: experience ?? null,
+    education: education ?? null,
+    certifications: certifications ?? null,
     createdById: req.user!.id,
   }).returning();
-  res.status(201).json({
-    id: candidate.id,
-    fullName: candidate.fullName,
-    email: candidate.email,
-    phone: candidate.phone,
-    experience: candidate.experience ?? null,
-    education: candidate.education ?? null,
-    certifications: candidate.certifications ?? null,
-    offerStatus: candidate.offerStatus,
-    createdById: candidate.createdById ?? null,
-    createdAt: candidate.createdAt,
-  });
+
+  res.status(201).json(serializeCandidate(candidate));
 });
 
 candidatesRouter.get("/candidates/:id", requireAuth, async (req, res): Promise<void> => {
@@ -156,16 +200,7 @@ candidatesRouter.get("/candidates/:id", requireAuth, async (req, res): Promise<v
   }
 
   res.json({
-    id: candidate.id,
-    fullName: candidate.fullName,
-    email: candidate.email,
-    phone: candidate.phone,
-    experience: candidate.experience ?? null,
-    education: candidate.education ?? null,
-    certifications: candidate.certifications ?? null,
-    offerStatus: candidate.offerStatus,
-    createdById: candidate.createdById ?? null,
-    createdAt: candidate.createdAt,
+    ...serializeCandidate(candidate),
     routingSheet,
   });
 });
@@ -174,18 +209,33 @@ candidatesRouter.patch("/candidates/:id", requireAuth, async (req, res): Promise
   const id = Number(req.params.id);
   const parsed = UpdateCandidateBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid request body" }); return; }
-  const [candidate] = await db.update(candidatesTable).set(parsed.data).where(eq(candidatesTable.id, id)).returning();
+
+  const data = parsed.data as any;
+  const update: Record<string, unknown> = { ...data };
+
+  // If any of the three name parts changed, recompute fullName
+  if (data.lastName !== undefined || data.firstName !== undefined || data.middleName !== undefined) {
+    // Need to fetch current row for parts we're not updating
+    const [current] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, id));
+    if (!current) { res.status(404).json({ error: "Not found" }); return; }
+    const lastName = data.lastName ?? current.lastName;
+    const firstName = data.firstName ?? current.firstName;
+    const middleName = data.middleName !== undefined ? data.middleName : current.middleName;
+    update.fullName = buildFullName(lastName, firstName, middleName);
+  }
+
+  // If IIN changes, re-derive birthDate + gender
+  if (data.iin !== undefined) {
+    const parsedIin = parseIin(data.iin);
+    if (!parsedIin.valid) {
+      res.status(400).json({ error: parsedIin.error ?? "Неверный ИИН" });
+      return;
+    }
+    update.birthDate = parsedIin.birthDate;
+    update.gender = parsedIin.gender;
+  }
+
+  const [candidate] = await db.update(candidatesTable).set(update).where(eq(candidatesTable.id, id)).returning();
   if (!candidate) { res.status(404).json({ error: "Not found" }); return; }
-  res.json({
-    id: candidate.id,
-    fullName: candidate.fullName,
-    email: candidate.email,
-    phone: candidate.phone,
-    experience: candidate.experience ?? null,
-    education: candidate.education ?? null,
-    certifications: candidate.certifications ?? null,
-    offerStatus: candidate.offerStatus,
-    createdById: candidate.createdById ?? null,
-    createdAt: candidate.createdAt,
-  });
+  res.json(serializeCandidate(candidate));
 });

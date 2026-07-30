@@ -14,6 +14,7 @@ import {
   routingSheetsTable,
 } from "@workspace/db";
 import { createRoutingSteps } from "./lib/routingSheet";
+import { generateIin } from "./lib/iin-generator";
 
 async function seed() {
   console.log("Seeding database…");
@@ -80,17 +81,61 @@ async function seed() {
     : await db.select().from(usersTable);
 
   // Candidates with offers and routing sheets
+  // Each gets a valid Kazakhstan IIN (passes parseIin check-digit validation)
+  // so the new-candidate form accepts them.
   const candidates = [
-    { fullName: "Татьяна Фёдорова", email: "t.fedorova@mail.ru", phone: "+7 900 111 22 33", positionId: posNurse.id, isDoctor: false },
-    { fullName: "Илья Громов", email: "i.gromov@mail.ru", phone: "+7 900 222 33 44", positionId: posDoctor.id, isDoctor: true },
-    { fullName: "Светлана Ким", email: "s.kim@mail.ru", phone: "+7 900 333 44 55", positionId: posAdmin.id, isDoctor: false },
+    {
+      lastName: "Фёдорова", firstName: "Татьяна", middleName: "Игоревна",
+      email: "t.fedorova@mail.ru", phone: "+7 900 111 22 33",
+      birthDate: new Date(Date.UTC(1990, 4, 15)), gender: "female" as const,
+      positionId: posNurse.id, isDoctor: false,
+      education: "Медицинский колледж, «Сестринское дело», 2011",
+      experience: "8 лет в терапевтическом отделении",
+      certifications: "Сертификат «Организация сестринского дела» (2020)",
+      serial: 1,
+    },
+    {
+      lastName: "Громов", firstName: "Илья", middleName: "Сергеевич",
+      email: "i.gromov@mail.ru", phone: "+7 900 222 33 44",
+      birthDate: new Date(Date.UTC(1982, 8, 23)), gender: "male" as const,
+      positionId: posDoctor.id, isDoctor: true,
+      education: "КазНМУ, «Лечебное дело», 2006; ординатура по терапии, 2008",
+      experience: "15 лет врачом-терапевтом, из них 5 — заведующий отделением",
+      certifications: "Высшая категория по терапии (2018); ACLS (2021)",
+      serial: 2,
+    },
+    {
+      lastName: "Ким", firstName: "Светлана", middleName: "Олеговна",
+      email: "s.kim@mail.ru", phone: "+7 900 333 44 55",
+      birthDate: new Date(Date.UTC(1995, 0, 7)), gender: "female" as const,
+      positionId: posAdmin.id, isDoctor: false,
+      education: "КазУЭФМТ, «Менеджмент в здравоохранении», 2017",
+      experience: "3 года администратором медицинского центра",
+      certifications: "Курс «Медицинский CRM» (2022)",
+      serial: 3,
+    },
   ];
 
   for (const c of candidates) {
+    const iin = generateIin({
+      birthDate: c.birthDate,
+      gender: c.gender,
+      serial: c.serial,
+    });
+
     const [candidate] = await db.insert(candidatesTable).values({
-      fullName: c.fullName,
+      lastName: c.lastName,
+      firstName: c.firstName,
+      middleName: c.middleName,
+      fullName: `${c.lastName} ${c.firstName} ${c.middleName}`.trim(),
       email: c.email,
       phone: c.phone,
+      iin,
+      birthDate: c.birthDate,
+      gender: c.gender,
+      education: c.education,
+      experience: c.experience,
+      certifications: c.certifications,
       offerStatus: "accepted",
       createdById: allUsers.find(u => u.role === "recruiter")!.id,
     }).returning();
@@ -117,7 +162,7 @@ async function seed() {
     }).returning();
 
     await createRoutingSteps(sheet.id, c.isDoctor);
-    console.log(`  Created candidate: ${c.fullName} → sheet #${sheet.id} (statusToken: ${statusToken})`);
+    console.log(`  Created candidate: ${candidate.fullName} (ИИН ${iin}) → sheet #${sheet.id} (statusToken: ${statusToken})`);
   }
 
   console.log("\nSeed complete. Login credentials (password: password123):");

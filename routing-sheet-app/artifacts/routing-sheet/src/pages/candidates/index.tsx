@@ -19,9 +19,11 @@ export default function Candidates() {
   const { data: candidates = [], isLoading } = useListCandidates();
 
   const filteredCandidates = candidates.filter(c => {
-    const matchesSearch = c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          c.phone.includes(searchTerm);
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = c.fullName.toLowerCase().includes(q) ||
+                          c.email.toLowerCase().includes(q) ||
+                          c.phone.includes(searchTerm) ||
+                          (c.iin || '').includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || c.offerStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -51,7 +53,7 @@ export default function Candidates() {
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
-              placeholder="Поиск по ФИО, email, телефону..." 
+              placeholder="Поиск по ФИО, email, телефону, ИИН..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 bg-background w-full"

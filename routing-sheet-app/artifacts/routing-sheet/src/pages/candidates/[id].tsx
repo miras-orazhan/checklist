@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, Mail, Link as LinkIcon, CheckCircle2, Clock, XCircle, ArrowRight, User, Briefcase, Phone, Mail as MailIcon, Award, UserCheck, ShieldAlert } from 'lucide-react';
+import { Loader2, Mail, Link as LinkIcon, CheckCircle2, Clock, XCircle, ArrowRight, User, Briefcase, Phone, Mail as MailIcon, Award, UserCheck, ShieldAlert, IdCard, Calendar, UserCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -40,6 +40,22 @@ const STEP_LABELS: Record<string, string> = {
   site_publication: 'Публикация на сайте',
   final_review: 'Финальная проверка',
 };
+
+const GENDER_LABELS: Record<string, string> = {
+  male: 'Мужской',
+  female: 'Женский',
+};
+
+function formatBirthDate(s: string | null | undefined): string {
+  if (!s) return '—';
+  // birthDate comes as ISO date (YYYY-MM-DD); parse as UTC to avoid TZ shift
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = d.getUTCFullYear();
+  return `${dd}.${mm}.${yyyy}`;
+}
 
 export default function CandidateDetail() {
   const params = useParams();
@@ -130,6 +146,47 @@ export default function CandidateDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-3">
+                <UserCircle className="w-4 h-4 mt-1 text-muted-foreground" />
+                <div className="flex-1">
+                  <div className="text-sm font-medium">ФИО</div>
+                  <div className="text-sm text-foreground">
+                    <span className="font-medium">{candidate.lastName} {candidate.firstName}</span>
+                    {candidate.middleName && <span> {candidate.middleName}</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Фамилия / Имя / Отчество — раздельно
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <IdCard className="w-4 h-4 mt-1 text-muted-foreground" />
+                <div>
+                  <div className="text-sm font-medium">ИИН</div>
+                  <div className="text-sm text-foreground font-mono tracking-wider">{candidate.iin}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-4 h-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <div className="text-sm font-medium">Дата рождения</div>
+                    <div className="text-sm text-foreground">{formatBirthDate(candidate.birthDate)}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <div className="text-sm font-medium">Пол</div>
+                    <div className="text-sm text-foreground">
+                      {candidate.gender ? GENDER_LABELS[candidate.gender] ?? candidate.gender : '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
                 <MailIcon className="w-4 h-4 mt-1 text-muted-foreground" />
                 <div>
                   <div className="text-sm font-medium">Email</div>
@@ -148,7 +205,7 @@ export default function CandidateDetail() {
                   <Briefcase className="w-4 h-4 mt-1 text-muted-foreground" />
                   <div>
                     <div className="text-sm font-medium">Опыт работы</div>
-                    <div className="text-sm text-muted-foreground">{candidate.experience}</div>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">{candidate.experience}</div>
                   </div>
                 </div>
               )}
@@ -157,7 +214,16 @@ export default function CandidateDetail() {
                   <Award className="w-4 h-4 mt-1 text-muted-foreground" />
                   <div>
                     <div className="text-sm font-medium">Образование</div>
-                    <div className="text-sm text-muted-foreground">{candidate.education}</div>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">{candidate.education}</div>
+                  </div>
+                </div>
+              )}
+              {candidate.certifications && (
+                <div className="flex items-start gap-3">
+                  <Award className="w-4 h-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <div className="text-sm font-medium">Сертификаты / курсы</div>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">{candidate.certifications}</div>
                   </div>
                 </div>
               )}

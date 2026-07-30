@@ -9,9 +9,18 @@ import type { CandidateOfferStatus } from './candidateOfferStatus';
 
 export interface Candidate {
   id: number;
+  lastName: string;
+  firstName: string;
+  /** @nullable */
+  middleName?: string | null;
   fullName: string;
   email: string;
   phone: string;
+  iin: string;
+  /** @nullable — ISO date string, derived from IIN */
+  birthDate?: string | null;
+  /** @nullable — 'male' | 'female', derived from IIN */
+  gender?: 'male' | 'female' | null;
   /** @nullable */
   experience?: string | null;
   /** @nullable */

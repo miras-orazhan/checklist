@@ -15,10 +15,26 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, Save, CheckCircle2, Stethoscope } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, CheckCircle2, Stethoscope, User, GraduationCap, Briefcase, Award, IdCard, Calendar } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+
+const GENDER_LABELS: Record<string, string> = {
+  male: 'Мужской',
+  female: 'Женский',
+};
+
+function formatBirthDate(s: string | null | undefined): string {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = d.getUTCFullYear();
+  return `${dd}.${mm}.${yyyy}`;
+}
 
 export default function DoctorProfilePage() {
   const params = useParams();
@@ -31,9 +47,15 @@ export default function DoctorProfilePage() {
   const isChiefPhysician = user?.role === 'chief_physician' || user?.role === 'admin';
   const isAccountManager = user?.role === 'account_manager';
 
-  const { data: profile, isLoading } = useGetDoctorProfile(routingSheetId, {
+  // GET response shape changed: { profile, candidate, routingSheet }
+  // We cast to any to access the new fields without regenerating the API client.
+  const { data: resp, isLoading } = useGetDoctorProfile(routingSheetId, {
     query: { queryKey: getGetDoctorProfileQueryKey(routingSheetId), enabled: !!routingSheetId }
-  });
+  }) as any;
+
+  const profile = resp?.profile ?? null;
+  const candidate = resp?.candidate ?? null;
+  const sheetCtx = resp?.routingSheet ?? null;
 
   // Find the routing step for this sheet
   const { data: steps } = useListRoutingSteps(
@@ -127,6 +149,93 @@ export default function DoctorProfilePage() {
           {isStepCompleted && <Badge variant="default" className="gap-1 text-emerald-700 bg-emerald-100"><CheckCircle2 className="w-3 h-3" />Завершено</Badge>}
         </div>
 
+        {/* ── Карточка кандидата: данные, которые ввёл рекрутер ──────────── */}
+        {/* Chief physician и account manager видят их для контекста при       */}
+        {/* заполнении профиля врача.                                          */}
+        {candidate && (
+          <Card className="border-blue-200/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-500" />
+                Данные кандидата
+              </CardTitle>
+              <CardDescription>
+                Введены рекрутером. {isChiefPhysician ? 'Используйте как контекст при заполнении профиля врача.' : 'Информация для ознакомления перед публикацией.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* ФИО + ИИН + пол + дата рождения */}
+              <div className="space-y-2">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">ФИО:</span>{' '}
+                  <span className="font-medium">{candidate.fullName}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <IdCard className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">ИИН:</span>
+                    <span className="font-mono">{candidate.iin}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Рождение:</span>
+                    <span>{formatBirthDate(candidate.birthDate)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Пол:</span>
+                    <span>{candidate.gender ? GENDER_LABELS[candidate.gender] ?? candidate.gender : '—'}</span>
+                  </div>
+                  {sheetCtx && (
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Должность:</span>
+                      <span>{sheetCtx.positionName}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Профессиональные данные */}
+              <div className="space-y-3">
+                {candidate.education && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <GraduationCap className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">Образование</div>
+                      <div className="whitespace-pre-wrap">{candidate.education}</div>
+                    </div>
+                  </div>
+                )}
+                {candidate.experience && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <Briefcase className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">Опыт работы</div>
+                      <div className="whitespace-pre-wrap">{candidate.experience}</div>
+                    </div>
+                  </div>
+                )}
+                {candidate.certifications && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <Award className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">Сертификаты / курсы</div>
+                      <div className="whitespace-pre-wrap">{candidate.certifications}</div>
+                    </div>
+                  </div>
+                )}
+                {!candidate.education && !candidate.experience && !candidate.certifications && (
+                  <p className="text-sm text-muted-foreground italic">Рекрутер не заполнил профессиональные данные.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Профиль врача (заполняет главврач) ─────────────────────────── */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{isChiefPhysician ? 'Заполните профиль врача' : 'Профиль врача (просмотр)'}</CardTitle>
