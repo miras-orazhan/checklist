@@ -1,2 +1,0 @@
-- [Orval Zod v3 compat](orval-zod-compat.md) — Orval 8.23 generates zod.int()/zod.email() (v4 syntax); fix by removing type:integer and format:email from OpenAPI spec
-- [DB lib build required](db-lib-build.md) — lib/db uses composite:true; must run tsc --build (pnpm run typecheck:libs) before API server can resolve @workspace/db types
