@@ -71,3 +71,28 @@ Stage Summary:
 - БД свежая — старые тестовые данные (кандидаты Мираз и Тест Ссылочный) потеряны при сбросе PGlite, но 3 демо-кандидата засеяны.
 - Учётки из seed (пароль password123): admin@demo.ru, recruiter@demo.ru, hr@demo.ru, marketing@demo.ru, tb@demo.ru, it@demo.ru, audit@demo.ru, chief@demo.ru, account@demo.ru, accounting@demo.ru, security@demo.ru, adaptation@demo.ru, medtech@demo.ru
 - На будущее: для остановки серверов использовать мягкое kill (без -9), чтобы PGlite корректно закрывал файлы.
+
+---
+Task ID: step-meta-1
+Agent: main (Super Z)
+Task: На статус-странице кандидата (и аналогично для увольнения) рядом с каждым шагом показать, в какой кабинет идти и что нужно сделать. Создать аналогичную страницу для увольнения.
+
+Work Log:
+- Создал artifacts/api-server/src/lib/routingStepMeta.ts — статические метаданные по 8 шагам найма (label, cabinet, instructions). Кабинеты — конкретные (например "Кабинет HR, 1 этаж, каб. 102"), инструкции — что принести и что подписать.
+- Создал artifacts/api-server/src/lib/terminationStepMeta.ts — аналогично для 9 шагов увольнения (8 базовых + account_manager_delete_profile только для врачей). Часть шагов явно помечена "от сотрудника ничего не требуется" — например, согласование главврача или удаление профиля аккаунт-менеджером.
+- Обновил routes/dashboard.ts (/candidate-status/:token) — теперь возвращает cabinet + instructions для каждого публичного шага.
+- Обновил routes/termination-status.ts — тоже возвращает cabinet + instructions, плюс шаги теперь идут в каноническом порядке (TERMINATION_PUBLIC_STEP_ORDER), а не в произвольном порядке из БД.
+- Обновил lib/api-zod/.../candidateStepStatus.ts и terminationPublicStep.ts — добавил опциональные поля cabinet?/instructions? (напрямую в сгенерированные файлы, без перезапуска orval codegen — это безопасное дополнение).
+- Обновил фронтенд pages/public/status.tsx — под каждым шагом показывается блок с иконкой MapPin (кабинет) и FileText (инструкции), мелким серым текстом, отступом от основного шага.
+- Обновил pages/public/termination-status.tsx — аналогично, плюс описание блока "Отслеживайте статус вашего увольнения..." в шапке.
+- Перезапустил api-server. Vite подхватил изменения через HMR.
+- Проверил оба эндпоинта:
+  • /api/candidate-status/<токен> — 6 шагов с cabinet/instructions ✓
+  • /api/termination-status/<токен> — 9 шагов (создал тестовый termination sheet через HR-аккаунт) с cabinet/instructions ✓
+- Улучшил scripts/start.sh — теперь использует setsid + nohup + </dev/null + disown для надёжного отвязывания от bash-сессии. Серверы теперь переживают завершение tool call.
+
+Stage Summary:
+- Статус-страница найма: https://preview-zai-web.space-z.ai/status/<token> — под каждым шагом видно кабинет + что принести/сделать.
+- Статус-страница увольнения: https://preview-zai-web.space-z.ai/termination-status/<token> — то же самое, плюс блок-описание.
+- Кабинеты сейчас захардкожены в routingStepMeta.ts/terminationStepMeta.ts — это дефолт для всех филиалов. Если позже понадобится per-branch кастомизация, можно добавить оверрайды через integration_configs (ключ вида `step_meta.<stepType>.cabinet`).
+- Старые ссылки на кабинеты нужно будет подкорректировать под реальные планы помещений клиники — я использовал вымышленные номера.

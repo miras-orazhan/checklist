@@ -10,5 +10,7 @@ import type { TerminationPublicStepStatus } from './terminationPublicStepStatus'
 export interface TerminationPublicStep {
   stepType: string;
   label: string;
+  cabinet?: string;
+  instructions?: string;
   status: TerminationPublicStepStatus;
 }

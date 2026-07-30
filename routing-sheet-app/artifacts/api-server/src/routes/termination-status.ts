@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, terminationSheetsTable, terminationStepsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { TERMINATION_STEP_LABELS } from "../lib/terminationSheet";
+import { TERMINATION_STEP_META, TERMINATION_PUBLIC_STEP_ORDER } from "../lib/terminationStepMeta";
 
 export const terminationStatusRouter = Router();
 
@@ -16,11 +17,24 @@ terminationStatusRouter.get("/termination-status/:token", async (req, res): Prom
   const steps = await db.select().from(terminationStepsTable)
     .where(eq(terminationStepsTable.terminationSheetId, sheet.id));
 
-  const publicSteps = steps.map(s => ({
-    stepType: s.stepType,
-    label: TERMINATION_STEP_LABELS[s.stepType] ?? s.stepType,
-    status: s.status,
-  }));
+  // Build a map stepType → step (DB row) for ordering lookup
+  const byType = new Map(steps.map(s => [s.stepType, s]));
+
+  // Output steps in the canonical public order — only step types that actually
+  // exist on this sheet (e.g. account_manager_delete_profile only for doctors).
+  const publicSteps = TERMINATION_PUBLIC_STEP_ORDER
+    .filter(stepType => byType.has(stepType))
+    .map(stepType => {
+      const s = byType.get(stepType)!;
+      const meta = TERMINATION_STEP_META[stepType];
+      return {
+        stepType,
+        label: meta?.label ?? TERMINATION_STEP_LABELS[stepType] ?? stepType,
+        cabinet: meta?.cabinet ?? "",
+        instructions: meta?.instructions ?? "",
+        status: s.status,
+      };
+    });
 
   res.json({
     employeeFullName: sheet.employeeFullName,

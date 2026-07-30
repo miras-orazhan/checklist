@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, candidatesTable, routingSheetsTable, routingStepsTable, branchesTable, positionsTable, auditLogTable } from "@workspace/db";
 import { eq, desc, count, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { ROUTING_STEP_META } from "../lib/routingStepMeta";
 
 export const dashboardRouter = Router();
 
@@ -131,11 +132,20 @@ dashboardRouter.get("/candidate-status/:token", async (req, res): Promise<void> 
   const steps = await db.select().from(routingStepsTable).where(eq(routingStepsTable.routingSheetId, sheet.id));
   const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, sheet.candidateId));
 
-  const publicSteps = steps.filter(s => !s.isBackground).map(s => ({
-    stepType: s.stepType,
-    label: STEP_LABELS[s.stepType] ?? s.stepType,
-    status: s.status === "completed" ? "completed" : "pending",
-  }));
+  // Public steps exclude background doctor tasks (doctor_profile, site_publication)
+  // — the candidate never visits these explicitly.
+  const publicSteps = steps
+    .filter(s => !s.isBackground)
+    .map(s => {
+      const meta = ROUTING_STEP_META[s.stepType];
+      return {
+        stepType: s.stepType,
+        label: meta?.label ?? STEP_LABELS[s.stepType] ?? s.stepType,
+        cabinet: meta?.cabinet ?? "",
+        instructions: meta?.instructions ?? "",
+        status: s.status === "completed" ? "completed" : "pending",
+      };
+    });
 
   res.json({
     candidateName: candidate?.fullName ?? "",

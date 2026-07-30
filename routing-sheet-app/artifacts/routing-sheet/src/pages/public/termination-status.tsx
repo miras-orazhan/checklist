@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'wouter';
 import { useGetTerminationStatus, getGetTerminationStatusQueryKey } from '@workspace/api-client-react';
-import { CheckCircle2, XCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertTriangle, Loader2, MapPin, FileText } from 'lucide-react';
 
 const STEP_STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
   pending:  { icon: <Clock className="w-5 h-5" />,        color: 'text-muted-foreground', label: 'Ожидает' },
@@ -42,6 +42,7 @@ export default function TerminationStatusPublic() {
   );
 
   const sheetConfig = SHEET_STATUS_CONFIG[data.status] ?? SHEET_STATUS_CONFIG.in_progress;
+  const isStopped = data.status === 'stopped' || data.status === 'rejected';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -61,6 +62,10 @@ export default function TerminationStatusPublic() {
         <div className="bg-card rounded-2xl p-5 border shadow-sm">
           <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1">Сотрудник</p>
           <h2 className="text-lg font-bold">{data.employeeFullName}</h2>
+          <p className="text-sm text-muted-foreground mt-2">
+            Отслеживайте статус вашего увольнения. Страница обновляется автоматически —
+            от вас требуется только пройти шаги, где указано, что нужно сделать.
+          </p>
         </div>
 
         {/* Steps */}
@@ -71,13 +76,34 @@ export default function TerminationStatusPublic() {
           <div className="divide-y divide-border">
             {data.steps.map((step: any, idx: number) => {
               const sc = STEP_STATUS_CONFIG[step.status] ?? STEP_STATUS_CONFIG.pending;
+              const isDone = step.status === 'approved' || step.status === 'skipped';
+              const hasDetails = Boolean(step.cabinet || step.instructions);
               return (
-                <div key={idx} className="flex items-center justify-between px-5 py-4">
-                  <span className="text-sm font-medium">{step.label}</span>
-                  <div className={`flex items-center gap-1.5 text-sm font-medium ${sc.color}`}>
-                    {sc.icon}
-                    <span className="hidden sm:inline">{sc.label}</span>
+                <div key={idx} className={`px-5 py-4 ${isDone ? 'bg-muted/10' : ''}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium">{step.label}</span>
+                    <div className={`flex items-center gap-1.5 text-sm font-medium ${sc.color} flex-shrink-0`}>
+                      {sc.icon}
+                      <span className="hidden sm:inline">{sc.label}</span>
+                    </div>
                   </div>
+
+                  {hasDetails && (
+                    <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                      {step.cabinet && (
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary/70" />
+                          <span className="leading-relaxed">{step.cabinet}</span>
+                        </div>
+                      )}
+                      {step.instructions && (
+                        <div className="flex items-start gap-2">
+                          <FileText className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary/70" />
+                          <span className="leading-relaxed">{step.instructions}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -92,7 +118,7 @@ export default function TerminationStatusPublic() {
           </div>
         )}
 
-        {(data.status === 'stopped' || data.status === 'rejected') && (
+        {isStopped && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-center">
             <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <p className="font-semibold text-red-800">Процесс остановлен</p>

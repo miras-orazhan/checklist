@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams } from 'wouter';
 import { useGetCandidateStatus, getGetCandidateStatusQueryKey } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, CheckCircle2, Clock } from 'lucide-react';
+import { Loader2, CheckCircle2, Clock, MapPin, FileText } from 'lucide-react';
 
 const STEP_LABELS: Record<string, string> = {
   hr_registration: 'Оформление (HR)',
@@ -45,7 +45,7 @@ export default function StatusPublic() {
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 selection:bg-primary/20">
       <div className="w-full max-w-md space-y-6">
-        
+
         <div className="text-center space-y-2 mb-8">
           <div className={`w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg ${isAllDone ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-primary text-primary-foreground shadow-primary/20'}`}>
             {isAllDone ? <CheckCircle2 className="w-10 h-10" /> : <Clock className="w-10 h-10" />}
@@ -70,23 +70,43 @@ export default function StatusPublic() {
             <div className="divide-y divide-border">
               {statusInfo.steps.map((step, index) => {
                 const isDone = step.status === 'completed';
-                const label = STEP_LABELS[step.stepType] ?? step.stepType;
+                const label = step.label ?? STEP_LABELS[step.stepType] ?? step.stepType;
+                const hasDetails = Boolean(step.cabinet || step.instructions);
                 return (
-                  <div key={index} className={`p-4 flex items-center gap-4 transition-colors ${isDone ? 'bg-muted/10' : 'bg-background'}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-500'}`}>
-                      {isDone ? <CheckCircle2 className="w-5 h-5" /> : <Loader2 className="w-5 h-5 animate-spin" />}
+                  <div key={index} className={`p-4 transition-colors ${isDone ? 'bg-muted/10' : 'bg-background'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-500'}`}>
+                        {isDone ? <CheckCircle2 className="w-5 h-5" /> : <Loader2 className="w-5 h-5 animate-spin" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm text-foreground">{label}</h4>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {isDone ? 'Готово' : 'В процессе'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm text-foreground">{label}</h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {isDone ? 'Готово' : 'В процессе'}
-                      </p>
-                    </div>
+
+                    {hasDetails && (
+                      <div className="mt-3 ml-14 space-y-2 text-xs">
+                        {step.cabinet && (
+                          <div className="flex items-start gap-2 text-muted-foreground">
+                            <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary/70" />
+                            <span className="leading-relaxed">{step.cabinet}</span>
+                          </div>
+                        )}
+                        {step.instructions && (
+                          <div className="flex items-start gap-2 text-muted-foreground">
+                            <FileText className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary/70" />
+                            <span className="leading-relaxed">{step.instructions}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-            
+
             {isAllDone && (
               <div className="p-6 bg-emerald-500/5 text-center border-t border-border">
                 <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">

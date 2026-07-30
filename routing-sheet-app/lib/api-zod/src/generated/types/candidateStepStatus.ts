@@ -10,5 +10,7 @@ import type { CandidateStepStatusStatus } from './candidateStepStatusStatus';
 export interface CandidateStepStatus {
   stepType: string;
   label: string;
+  cabinet?: string;
+  instructions?: string;
   status: CandidateStepStatusStatus;
 }
