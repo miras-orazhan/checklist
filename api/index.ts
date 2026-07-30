@@ -10,6 +10,8 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+/// <reference path="./_app.mjs.d.ts" />
+
 // Lazy-load the app to avoid cold-start issues
 let _app: any = null;
 
