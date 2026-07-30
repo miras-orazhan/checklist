@@ -93,7 +93,6 @@ async function buildApiBundle() {
       "re2",
       "lightningcss",
       "pg-native",
-      "@electric-sql/pglite",
       "@vercel/blob",
       // Node built-ins
       "fs",
