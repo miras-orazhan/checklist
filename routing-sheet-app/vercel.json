@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/routing-sheet run build",
   "outputDirectory": "artifacts/routing-sheet/dist/public",
@@ -10,18 +11,18 @@
       "memory": 1024
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     },
     {
-      "src": "/photos/(.*)",
-      "dest": "/api/photos/$1"
+      "source": "/photos/(.*)",
+      "destination": "/api/photos/$1"
     },
     {
-      "src": "/((?!api).*)",
-      "dest": "/index.html"
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
     }
   ]
 }
