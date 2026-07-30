@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthContext';
 import {
   LayoutDashboard, Users, CheckSquare, LogOut, FileText, Settings,
-  User as UserIcon, UserMinus, ClipboardList, ShieldCheck, IdCard, Stethoscope,
+  User as UserIcon, UserMinus, ClipboardList, ShieldCheck, IdCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -37,16 +37,10 @@ const OFFBOARDING_ROLES = [
 // Roles that can manage candidates / create offers
 const HIRING_ROLES = ['admin', 'hr', 'recruiter'];
 
-// Roles that can see the full candidates list
+// Roles that can see the Реестр (all candidates + their data)
 const CANDIDATES_ROLES = [
-  'admin', 'hr', 'recruiter', 'chief_physician', 'account_manager',
+  'admin', 'hr', 'recruiter', 'chief_physician', 'account_manager', 'marketing',
 ];
-
-// Roles that can see the employee registry
-const EMPLOYEES_ROLES = ['admin', 'hr', 'recruiter', 'chief_physician', 'account_manager'];
-
-// Roles that can see the doctor registry (marketing, account_manager, chief_physician, etc.)
-const DOCTORS_ROLES = ['admin', 'hr', 'recruiter', 'chief_physician', 'account_manager', 'marketing'];
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -90,9 +84,7 @@ export function AppLayout({ children, title, actions }: AppLayoutProps) {
     { href: '/dashboard', label: 'Сводка', icon: LayoutDashboard, show: true, badge: 0 },
     { href: '/my-tasks', label: 'Мои задачи (найм)', icon: CheckSquare, show: true, badge: counts?.hiring ?? 0 },
     { href: '/termination-tasks', label: 'Мои задачи (увольнение)', icon: ClipboardList, show: OFFBOARDING_ROLES.includes(role), badge: counts?.termination ?? 0 },
-    { href: '/candidates', label: 'Кандидаты', icon: Users, show: CANDIDATES_ROLES.includes(role), badge: 0 },
-    { href: '/doctors', label: 'Врачи', icon: Stethoscope, show: DOCTORS_ROLES.includes(role), badge: 0 },
-    { href: '/employees', label: 'Сотрудники', icon: IdCard, show: EMPLOYEES_ROLES.includes(role), badge: 0 },
+    { href: '/candidates', label: 'Реестр', icon: Users, show: CANDIDATES_ROLES.includes(role), badge: 0 },
     { href: '/termination', label: 'Увольнения', icon: UserMinus, show: HIRING_ROLES.includes(role) || role === 'admin', badge: 0 },
     { href: '/admin', label: 'Администрирование', icon: ShieldCheck, show: role === 'admin', badge: 0 },
   ].filter(item => item.show);

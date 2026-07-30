@@ -1,9 +1,11 @@
 import { Router } from "express";
-import { db, candidatesTable, routingSheetsTable, branchesTable, positionsTable, routingStepsTable, usersTable } from "@workspace/db";
+import { db, candidatesTable, routingSheetsTable, branchesTable, positionsTable, routingStepsTable, usersTable, doctorProfilesTable } from "@workspace/db";
 import { eq, ilike, and, SQL } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { CreateCandidateBody, UpdateCandidateBody } from "@workspace/api-zod";
 import { parseIin } from "../lib/iin";
+import { savePhoto } from "../lib/photoStorage";
+import { logAudit } from "../lib/audit";
 
 export const candidatesRouter = Router();
 
@@ -238,4 +240,137 @@ candidatesRouter.patch("/candidates/:id", requireAuth, async (req, res): Promise
   const [candidate] = await db.update(candidatesTable).set(update).where(eq(candidatesTable.id, id)).returning();
   if (!candidate) { res.status(404).json({ error: "Not found" }); return; }
   res.json(serializeCandidate(candidate));
+});
+
+// PUT /candidates/:id/photo — upload/replace the candidate's photo.
+// Accepts raw image bytes as the request body (Content-Type: image/jpeg).
+// Stores the file and updates the marketing_photo step's photo_url.
+// If the candidate is a doctor, also updates doctor_profiles.photo_url.
+//
+// Access: admin, marketing, account_manager, chief_physician
+candidatesRouter.put("/candidates/:id/photo", requireAuth, async (req, res): Promise<void> => {
+  const user = req.user!;
+  const photoRoles = ["admin", "marketing", "account_manager", "chief_physician"];
+  if (!photoRoles.includes(user.role)) {
+    res.status(403).json({ error: "Forbidden — only marketing/account_manager/admin/chief_physician can change photo" });
+    return;
+  }
+
+  const candidateId = Number(req.params.id);
+  const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, candidateId));
+  if (!candidate) { res.status(404).json({ error: "Candidate not found" }); return; }
+
+  // Find the routing sheet for this candidate
+  const [sheet] = await db.select().from(routingSheetsTable).where(eq(routingSheetsTable.candidateId, candidateId));
+  if (!sheet) { res.status(404).json({ error: "Routing sheet not found for this candidate" }); return; }
+
+  const contentType = (req.headers["content-type"] ?? "").toLowerCase();
+  const EXT_BY_MIME: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+  };
+  const ext = EXT_BY_MIME[contentType];
+  if (!ext) {
+    res.status(400).json({ error: `Unsupported content type: ${contentType}. Use image/jpeg, image/png, image/webp, or image/gif.` });
+    return;
+  }
+
+  // Collect raw body
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  const MAX = 10 * 1024 * 1024;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > MAX) { res.status(413).json({ error: "File too large (max 10 MB)" }); return; }
+    chunks.push(Buffer.from(chunk));
+  }
+  const buffer = Buffer.concat(chunks);
+  if (buffer.length === 0) { res.status(400).json({ error: "Empty body — no file received" }); return; }
+
+  const photoUrl = await savePhoto(buffer, ext);
+
+  // Update marketing_photo step
+  const [marketingStep] = await db.select().from(routingStepsTable)
+    .where(and(
+      eq(routingStepsTable.routingSheetId, sheet.id),
+      eq(routingStepsTable.stepType, "marketing_photo"),
+    ));
+  if (marketingStep) {
+    await db.update(routingStepsTable).set({ photoUrl }).where(eq(routingStepsTable.id, marketingStep.id));
+  }
+
+  // If doctor, also update doctor_profiles.photo_url
+  if (sheet.isDoctor) {
+    const [profile] = await db.select().from(doctorProfilesTable)
+      .where(eq(doctorProfilesTable.routingSheetId, sheet.id));
+    if (profile) {
+      await db.update(doctorProfilesTable).set({ photoUrl }).where(eq(doctorProfilesTable.id, profile.id));
+    } else {
+      await db.insert(doctorProfilesTable).values({
+        routingSheetId: sheet.id,
+        photoUrl,
+        createdById: user.id,
+      });
+    }
+  }
+
+  await logAudit({ actorId: user.id, actorName: user.fullName, action: "update_candidate_photo", objectType: "candidate", objectId: candidateId, details: `Photo updated for ${candidate.fullName}` });
+
+  res.json({ url: photoUrl });
+});
+
+// PATCH /candidates/:id/routing-sheet — update branch and/or position on the
+// candidate's routing sheet. Used by HR to assign/reassign branch and position.
+//
+// Access: admin, hr
+candidatesRouter.patch("/candidates/:id/routing-sheet", requireAuth, async (req, res): Promise<void> => {
+  const user = req.user!;
+  if (!["admin", "hr"].includes(user.role)) {
+    res.status(403).json({ error: "Forbidden — only admin/hr can change branch/position" });
+    return;
+  }
+
+  const candidateId = Number(req.params.id);
+  const { branchId, positionId } = req.body;
+
+  const [sheet] = await db.select().from(routingSheetsTable).where(eq(routingSheetsTable.candidateId, candidateId));
+  if (!sheet) { res.status(404).json({ error: "Routing sheet not found for this candidate" }); return; }
+
+  const update: Record<string, unknown> = {};
+  if (branchId !== undefined) {
+    const [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, Number(branchId)));
+    if (!branch) { res.status(404).json({ error: "Branch not found" }); return; }
+    update.branchId = Number(branchId);
+  }
+  if (positionId !== undefined) {
+    const [position] = await db.select().from(positionsTable).where(eq(positionsTable.id, Number(positionId)));
+    if (!position) { res.status(404).json({ error: "Position not found" }); return; }
+    update.positionId = Number(positionId);
+    // Also update isDoctor flag in case the position changed
+    update.isDoctor = position.isDoctor;
+  }
+
+  if (Object.keys(update).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+
+  const [updated] = await db.update(routingSheetsTable).set(update).where(eq(routingSheetsTable.id, sheet.id)).returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+
+  await logAudit({ actorId: user.id, actorName: user.fullName, action: "update_routing_sheet", objectType: "routing_sheet", objectId: sheet.id, details: `Updated: ${Object.keys(update).join(", ")}` });
+
+  const [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, updated.branchId));
+  const [position] = await db.select().from(positionsTable).where(eq(positionsTable.id, updated.positionId));
+  res.json({
+    id: updated.id,
+    branchId: updated.branchId,
+    branchName: branch?.name ?? "",
+    positionId: updated.positionId,
+    positionName: position?.name ?? "",
+    isDoctor: updated.isDoctor,
+  });
 });
