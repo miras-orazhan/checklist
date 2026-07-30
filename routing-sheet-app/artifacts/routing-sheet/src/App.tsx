@@ -27,6 +27,7 @@ import Candidates from '@/pages/candidates';
 import NewCandidate from '@/pages/candidates/new';
 import CandidateDetail from '@/pages/candidates/[id]';
 import Employees from '@/pages/employees';
+import Doctors from '@/pages/doctors';
 import MyTasks from '@/pages/my-tasks';
 import TaskDetail from '@/pages/my-tasks/[stepId]';
 import SettingsPage from '@/pages/settings';
@@ -79,6 +80,7 @@ function App() {
               <Route path="/candidates/new" component={() => <ProtectedRoute component={NewCandidate} />} />
               <Route path="/candidates/:id" component={() => <ProtectedRoute component={CandidateDetail} />} />
               <Route path="/employees" component={() => <ProtectedRoute component={Employees} />} />
+              <Route path="/doctors" component={() => <ProtectedRoute component={Doctors} />} />
               <Route path="/my-tasks" component={() => <ProtectedRoute component={MyTasks} />} />
               <Route path="/my-tasks/:stepId" component={() => <ProtectedRoute component={TaskDetail} />} />
               <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />

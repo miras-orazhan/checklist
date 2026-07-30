@@ -323,3 +323,48 @@ Stage Summary:
 - Причина падения: <FormDescription> использовался вне <FormField>, что вызывало исключение в useFormField() → React unmount-ил страницу.
 - Все <FormDescription> заменены на обычные <p> для надёжности (это также упрощает код — не нужно оборачивать каждый параграф в FormField).
 - Полный flow проверен end-to-end через agent-browser: заполнение формы → валидация ИИН → создание кандидата → редирект на карточку.
+
+---
+Task ID: doctors-registry-and-task-counts-1
+Agent: main (Super Z)
+Task: 1) Реестр врачей для маркетолога где можно менять фото. 2) Уменьшить оповещения — только кандидатам. 3) Упростить termination форму — ФИО, филиал, должность, почта, ИИН. 4) Каждый участник может редактировать свою часть по уже добавленным врачам. 5) Счётчик задач рядом с "Мои задачи".
+
+Work Log:
+- Бэкенд: добавил эндпоинт GET /api/dashboard/my-task-counts — возвращает {hiring, termination, total} количество pending задач для текущего пользователя. Admin видит ВСЕ pending задачи (oversight), остальные роли — только свои (по assignedRole). Учитывает только steps на in_progress sheets.
+- Бэкенд: создал routes/doctors.ts — реестр врачей:
+  • GET /api/doctors — список всех кандидатов с is_doctor=true на их routing sheet. Возвращает candidate fields + photo URL (из doctor_profiles или fallback на marketing step) + doctor profile fields (specialty, about, procedures, etc.)
+  • GET /api/doctors/:id — детали одного врача
+  • PUT /api/doctors/:id/photo — загрузка/замена фото (raw body = image bytes). Обновляет ОБА места: doctor_profiles.photo_url И routing_steps.photo_url на marketing_photo step (чтобы фото было видно везде). Доступ: marketing, account_manager, chief_physician, admin
+  • PUT /api/doctors/:id — редактирование полей профиля (specialty, about, procedures, ageRestrictions, siteDiscounts, experience). Role-based: admin+chief_physician могут всё, account_manager — publication-related поля (specialty, about, procedures, siteDiscounts), marketing — ничего (только фото через /photo endpoint)
+- Бэкенд: расширил schema termination_sheets — добавил поля email и iin. Обновил migrate.ts с idempotent ALTER TABLE DO $$ блоком. Обновил routes/termination-sheets.ts — POST принимает email+iin, GET list и GET by id возвращают их.
+- Фронтенд: обновил components/layout/AppLayout.tsx — добавил useQuery для /api/dashboard/my-task-counts (refetch каждые 30 сек + on window focus). В navItems добавил поле badge. Рендерит бейдж с цифрой справа от пункта "Мои задачи (найм)" и "Мои задачи (увольнение)" если count > 0. Стили: circle с primary-цветом, "99+" при переполнении.
+- Фронтенд: добавил новый пункт "Врачи" с иконкой Stethoscope в навигацию. Виден ролям: admin, hr, recruiter, chief_physician, account_manager, marketing.
+- Фронтенд: создал pages/doctors/index.tsx — реестр врачей:
+  • Сводная статистика: Всего врачей / Работает / Оформляется / С фото
+  • Фильтры: поиск (ФИО, ИИН, email, специализация), филиал, статус
+  • Таблица: фото, ФИО+контакты, специализация, филиал/должность, статус, кнопка "Открыть"/"Фото"
+  • При клике открывается диалог редактирования: фото (с кнопкой загрузить/скачать), read-only данные кандидата (ИИН, рождение, email, телефон, образование, опыт, сертификаты), editable поля профиля (specialty, стаж, возрастные ограничения, скидки, о враче, процедуры)
+  • Marketing видит только секцию фото + read-only данные. Account manager + chief + admin видят editable поля.
+  • Фото сжимается на клиенте (compressPhoto из lib/photoUpload.ts) до 1024px JPEG q 0.85 перед PUT на /api/doctors/:id/photo
+- Фронтенд: обновил pages/termination/new.tsx — добавил поля Email и ИИН (необязательные, с валидацией email + 12 цифр для ИИН). Обновил схему zod.
+- Фронтенд: добавил роут /doctors в App.tsx.
+- Пересоздал БД (PGlite повредилась при перезапусках). Миграции + seed отработали чисто.
+- Тесты через agent-browser:
+  • GET /api/dashboard/my-task-counts (recruiter) → {"hiring":3,"termination":0,"total":3} ✓
+  • GET /api/dashboard/my-task-counts (marketing) → {"hiring":3,"termination":0,"total":3} ✓
+  • GET /api/dashboard/my-task-counts (admin) → {"hiring":20,"termination":0,"total":20} ✓ (админ видит все pending)
+  • GET /api/doctors (recruiter) → 1 врач (Громов) ✓
+  • GET /api/doctors (marketing) → 1 врач, маркетинг имеет доступ ✓
+  • UI: marketing видит "Мои задачи (найм) 3" с бейджем ✓
+  • UI: admin видит "Мои задачи (найм) 20" с бейджем ✓
+  • UI: /doctors — страница рендерится с 1 врачом, кнопка "Фото" для маркетолога ✓
+  • UI: диалог открытия врача — маркетолог видит только секцию фото + read-only данные ✓
+  • UI: /termination/new — форма содержит все 6 полей: ФИО, филиал, должность, email, ИИН, дата ✓
+
+Stage Summary:
+- Реестр врачей доступен по /doctors — виден admin/hr/recruiter/chief_physician/account_manager/marketing.
+- Маркетолог может загружать/заменять фото любого врача через диалог (с автосжатием до 1024px). Фото сразу обновляется и в doctor_profiles, и в marketing_photo step.
+- Главный врач и аккаунт-менеджер могут редактировать профильные поля (специализация, стаж, процедуры, о враче, и т.д.) — каждый свою часть.
+- Счётчик задач в навигации: бейдж с числом рядом с "Мои задачи (найм)" и "Мои задачи (увольнение)". Обновляется каждые 30 сек + при фокусе окна.
+- Форма создания увольнения упрощена и расширена: ФИО, филиал, должность (обязательные), email, ИИН (необязательные), дата увольнения (обязательная).
+- Доступ к фото врачей: видят admin, hr, recruiter, chief_physician, account_manager, marketing — то есть все роли, которым нужен доступ. Не-врачебные сотрудники (TB, IT, Аудит) не видят реестр врачей — у них свои задачи.

@@ -1,13 +1,15 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthContext';
 import {
   LayoutDashboard, Users, CheckSquare, LogOut, FileText, Settings,
-  User as UserIcon, UserMinus, ClipboardList, ShieldCheck, IdCard,
+  User as UserIcon, UserMinus, ClipboardList, ShieldCheck, IdCard, Stethoscope,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { customFetch } from '@workspace/api-client-react';
 
 const ROLES_RU: Record<string, string> = {
   admin: 'Администратор',
@@ -43,16 +45,39 @@ const CANDIDATES_ROLES = [
 // Roles that can see the employee registry
 const EMPLOYEES_ROLES = ['admin', 'hr', 'recruiter', 'chief_physician', 'account_manager'];
 
+// Roles that can see the doctor registry (marketing, account_manager, chief_physician, etc.)
+const DOCTORS_ROLES = ['admin', 'hr', 'recruiter', 'chief_physician', 'account_manager', 'marketing'];
+
 interface AppLayoutProps {
   children: React.ReactNode;
   title: string;
   actions?: React.ReactNode;
 }
 
+interface TaskCounts {
+  hiring: number;
+  termination: number;
+  total: number;
+}
+
 export function AppLayout({ children, title, actions }: AppLayoutProps) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const role = user?.role ?? '';
+
+  // Fetch pending task counts for the sidebar badges. Refetch every 30s and
+  // on window focus so the badge stays current without overwhelming the API.
+  const { data: counts } = useQuery<TaskCounts>({
+    queryKey: ['my-task-counts'],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      return customFetch<TaskCounts>('/api/dashboard/my-task-counts', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    },
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
 
   const handleLogout = () => {
     logout();
@@ -62,13 +87,14 @@ export function AppLayout({ children, title, actions }: AppLayoutProps) {
   const isAdminSection = location.startsWith('/admin');
 
   const navItems = [
-    { href: '/dashboard', label: 'Сводка', icon: LayoutDashboard, show: true },
-    { href: '/my-tasks', label: 'Мои задачи (найм)', icon: CheckSquare, show: true },
-    { href: '/termination-tasks', label: 'Мои задачи (увольнение)', icon: ClipboardList, show: OFFBOARDING_ROLES.includes(role) },
-    { href: '/candidates', label: 'Кандидаты', icon: Users, show: CANDIDATES_ROLES.includes(role) },
-    { href: '/employees', label: 'Сотрудники', icon: IdCard, show: EMPLOYEES_ROLES.includes(role) },
-    { href: '/termination', label: 'Увольнения', icon: UserMinus, show: HIRING_ROLES.includes(role) || role === 'admin' },
-    { href: '/admin', label: 'Администрирование', icon: ShieldCheck, show: role === 'admin' },
+    { href: '/dashboard', label: 'Сводка', icon: LayoutDashboard, show: true, badge: 0 },
+    { href: '/my-tasks', label: 'Мои задачи (найм)', icon: CheckSquare, show: true, badge: counts?.hiring ?? 0 },
+    { href: '/termination-tasks', label: 'Мои задачи (увольнение)', icon: ClipboardList, show: OFFBOARDING_ROLES.includes(role), badge: counts?.termination ?? 0 },
+    { href: '/candidates', label: 'Кандидаты', icon: Users, show: CANDIDATES_ROLES.includes(role), badge: 0 },
+    { href: '/doctors', label: 'Врачи', icon: Stethoscope, show: DOCTORS_ROLES.includes(role), badge: 0 },
+    { href: '/employees', label: 'Сотрудники', icon: IdCard, show: EMPLOYEES_ROLES.includes(role), badge: 0 },
+    { href: '/termination', label: 'Увольнения', icon: UserMinus, show: HIRING_ROLES.includes(role) || role === 'admin', badge: 0 },
+    { href: '/admin', label: 'Администрирование', icon: ShieldCheck, show: role === 'admin', badge: 0 },
   ].filter(item => item.show);
 
   return (
@@ -85,6 +111,7 @@ export function AppLayout({ children, title, actions }: AppLayoutProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navItems.map((item) => {
             const isActive = location === item.href || location.startsWith(item.href + '/');
+            const showBadge = item.badge > 0;
             return (
               <Link
                 key={item.href}
@@ -96,8 +123,20 @@ export function AppLayout({ children, title, actions }: AppLayoutProps) {
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                 )}
               >
-                <item.icon className="w-4 h-4" />
-                {item.label}
+                <item.icon className="w-4 h-4 flex-shrink-0" />
+                <span className="flex-1 truncate">{item.label}</span>
+                {showBadge && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold flex-shrink-0",
+                      isActive
+                        ? "bg-primary-foreground text-primary"
+                        : "bg-primary text-primary-foreground"
+                    )}
+                  >
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

@@ -16,6 +16,11 @@ export const terminationSheetsTable = pgTable("termination_sheets", {
   branchId: integer("branch_id").notNull(),
   positionId: integer("position_id").notNull(),
   isDoctor: boolean("is_doctor").notNull().default(false),
+  // Basic contact info for the offboarding employee — entered by HR when
+  // creating the termination sheet. Used for notifications + displayed on
+  // the public status page.
+  email: text("email"),
+  iin: text("iin"),
   terminationDate: timestamp("termination_date", { withTimezone: true }).notNull(),
   initiatorId: integer("initiator_id").notNull(),
   initiatorName: text("initiator_name").notNull(),

@@ -12,7 +12,7 @@ import {
 } from '@workspace/api-client-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,6 +23,10 @@ const schema = z.object({
   employeeFullName: z.string().min(2, 'Введите ФИО сотрудника'),
   branchId: z.string().min(1, 'Выберите филиал'),
   positionId: z.string().min(1, 'Выберите должность'),
+  email: z.string().email('Введите корректный email').optional().or(z.literal('')),
+  iin: z.string()
+    .optional()
+    .refine((v) => !v || /^\d{12}$/.test(v), 'ИИН должен содержать 12 цифр'),
   terminationDate: z.string().min(1, 'Укажите дату увольнения'),
 });
 
@@ -38,7 +42,7 @@ export default function NewTermination() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { employeeFullName: '', branchId: '', positionId: '', terminationDate: '' },
+    defaultValues: { employeeFullName: '', branchId: '', positionId: '', email: '', iin: '', terminationDate: '' },
   });
 
   const onSubmit = (values: FormValues) => {
@@ -47,6 +51,8 @@ export default function NewTermination() {
         employeeFullName: values.employeeFullName,
         branchId: Number(values.branchId),
         positionId: Number(values.positionId),
+        email: values.email || undefined,
+        iin: values.iin || undefined,
         terminationDate: new Date(values.terminationDate).toISOString(),
       }
     }, {
@@ -74,11 +80,15 @@ export default function NewTermination() {
         <Card>
           <CardHeader>
             <CardTitle>Данные сотрудника</CardTitle>
+            <CardDescription>
+              Базовые данные для запуска процесса увольнения. Email и ИИН
+              необязательны, но рекомендуются для корректной работы уведомлений.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <div className="space-y-2">
-                <Label>ФИО сотрудника</Label>
+                <Label>ФИО сотрудника *</Label>
                 <Input
                   {...form.register('employeeFullName')}
                   placeholder="Иванов Иван Иванович"
@@ -90,7 +100,7 @@ export default function NewTermination() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Филиал</Label>
+                  <Label>Филиал *</Label>
                   <Select
                     onValueChange={(v) => form.setValue('branchId', v)}
                     value={form.watch('branchId')}
@@ -110,7 +120,7 @@ export default function NewTermination() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Должность</Label>
+                  <Label>Должность *</Label>
                   <Select
                     onValueChange={(v) => form.setValue('positionId', v)}
                     value={form.watch('positionId')}
@@ -132,8 +142,35 @@ export default function NewTermination() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    {...form.register('email')}
+                    placeholder="ivanov@example.com"
+                  />
+                  {form.formState.errors.email && (
+                    <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>ИИН</Label>
+                  <Input
+                    {...form.register('iin')}
+                    placeholder="123456789012"
+                    maxLength={12}
+                    inputMode="numeric"
+                  />
+                  {form.formState.errors.iin && (
+                    <p className="text-xs text-destructive">{form.formState.errors.iin.message}</p>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label>Дата увольнения</Label>
+                <Label>Дата увольнения *</Label>
                 <Input
                   type="date"
                   {...form.register('terminationDate')}
@@ -144,7 +181,7 @@ export default function NewTermination() {
               </div>
 
               <Button type="submit" className="w-full" disabled={createMutation.isPending}>
-                {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2" />}
                 Создать лист и запустить процесс
               </Button>
             </form>

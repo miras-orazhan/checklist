@@ -135,6 +135,8 @@ CREATE TABLE IF NOT EXISTS termination_sheets (
   branch_id INTEGER NOT NULL,
   position_id INTEGER NOT NULL,
   is_doctor BOOLEAN NOT NULL DEFAULT FALSE,
+  email TEXT,
+  iin TEXT,
   termination_date TIMESTAMPTZ NOT NULL,
   initiator_id INTEGER NOT NULL,
   initiator_name TEXT NOT NULL,
@@ -148,6 +150,20 @@ CREATE TABLE IF NOT EXISTS termination_sheets (
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add email/iin columns to existing termination_sheets (idempotent — fails
+-- silently if the columns already exist, which is the case on fresh DBs).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'termination_sheets' AND column_name = 'email') THEN
+    ALTER TABLE termination_sheets ADD COLUMN email TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'termination_sheets' AND column_name = 'iin') THEN
+    ALTER TABLE termination_sheets ADD COLUMN iin TEXT;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS termination_steps (
   id SERIAL PRIMARY KEY,

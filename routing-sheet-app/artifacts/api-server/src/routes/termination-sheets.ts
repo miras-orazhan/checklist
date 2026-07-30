@@ -23,6 +23,8 @@ async function enrichSheet(sheet: typeof terminationSheetsTable.$inferSelect) {
     positionId: sheet.positionId,
     positionName: position?.name ?? "",
     isDoctor: sheet.isDoctor,
+    email: sheet.email ?? null,
+    iin: sheet.iin ?? null,
     terminationDate: sheet.terminationDate,
     initiatorId: sheet.initiatorId,
     initiatorName: sheet.initiatorName,
@@ -101,6 +103,8 @@ terminationSheetsRouter.get("/termination-sheets", requireAuth, async (req, res)
       positionId: s.positionId,
       positionName: position?.name ?? "",
       isDoctor: s.isDoctor,
+      email: s.email ?? null,
+      iin: s.iin ?? null,
       terminationDate: s.terminationDate,
       initiatorId: s.initiatorId,
       initiatorName: s.initiatorName,
@@ -123,7 +127,7 @@ terminationSheetsRouter.post("/termination-sheets", requireAuth, async (req, res
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
-  const { employeeFullName, branchId, positionId, terminationDate } = req.body;
+  const { employeeFullName, branchId, positionId, terminationDate, email, iin } = req.body;
   if (!employeeFullName || !branchId || !positionId || !terminationDate) {
     res.status(400).json({ error: "Missing required fields" }); return;
   }
@@ -139,6 +143,8 @@ terminationSheetsRouter.post("/termination-sheets", requireAuth, async (req, res
       branchId: Number(branchId),
       positionId: Number(positionId),
       isDoctor: position.isDoctor,
+      email: email ? String(email) : null,
+      iin: iin ? String(iin) : null,
       terminationDate: new Date(terminationDate),
       initiatorId: user.id,
       initiatorName: user.fullName,

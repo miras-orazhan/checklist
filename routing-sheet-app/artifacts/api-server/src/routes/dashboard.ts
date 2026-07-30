@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, candidatesTable, routingSheetsTable, routingStepsTable, branchesTable, positionsTable, auditLogTable } from "@workspace/db";
+import { db, candidatesTable, routingSheetsTable, routingStepsTable, branchesTable, positionsTable, auditLogTable, terminationStepsTable, terminationSheetsTable } from "@workspace/db";
 import { eq, desc, count, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { loadRoutingStepMeta } from "../lib/routingStepMeta";
@@ -154,5 +154,53 @@ dashboardRouter.get("/candidate-status/:token", async (req, res): Promise<void> 
     candidateName: candidate?.fullName ?? "",
     overallStatus: sheet.status === "completed" ? "completed" : "in_progress",
     steps: publicSteps,
+  });
+});
+
+// GET /dashboard/my-task-counts
+// Returns the number of pending tasks assigned to the current user's role,
+// split by sheet kind (hiring vs. termination). Used by the sidebar to show
+// a badge next to "Мои задачи".
+//
+// Counts:
+//   - Only steps with status='pending' (not yet started)
+//   - Only steps where assignedRole matches the user's role
+//   - Admin sees ALL pending tasks across all roles (oversight)
+dashboardRouter.get("/dashboard/my-task-counts", requireAuth, async (req, res): Promise<void> => {
+  const user = req.user!;
+
+  // For admin — count all pending tasks. For other roles — only their own.
+  const roleFilter = user.role === "admin" ? undefined : eq(routingStepsTable.assignedRole, user.role);
+  const termRoleFilter = user.role === "admin" ? undefined : eq(terminationStepsTable.assignedRole, user.role);
+
+  // Hiring: count pending routing steps assigned to user's role.
+  // We also need to make sure the parent routing sheet is still in_progress —
+  // a pending step on a cancelled sheet doesn't count.
+  const routingQuery = db.select({ count: count() })
+    .from(routingStepsTable)
+    .innerJoin(routingSheetsTable, eq(routingSheetsTable.id, routingStepsTable.routingSheetId))
+    .where(and(
+      eq(routingStepsTable.status, "pending"),
+      eq(routingSheetsTable.status, "in_progress"),
+      ...(roleFilter ? [roleFilter] : []),
+    ));
+  const [routingRow] = await routingQuery;
+
+  // Termination: count pending termination steps assigned to user's role.
+  // Same logic — parent sheet must be in_progress.
+  const termQuery = db.select({ count: count() })
+    .from(terminationStepsTable)
+    .innerJoin(terminationSheetsTable, eq(terminationSheetsTable.id, terminationStepsTable.terminationSheetId))
+    .where(and(
+      eq(terminationStepsTable.status, "pending"),
+      eq(terminationSheetsTable.status, "in_progress"),
+      ...(termRoleFilter ? [termRoleFilter] : []),
+    ));
+  const [termRow] = await termQuery;
+
+  res.json({
+    hiring: Number(routingRow?.count ?? 0),
+    termination: Number(termRow?.count ?? 0),
+    total: Number(routingRow?.count ?? 0) + Number(termRow?.count ?? 0),
   });
 });
