@@ -1,25 +1,28 @@
 /**
- * Vercel serverless function — catches all /api/* routes and forwards them
- * to the Express app.
+ * Vercel serverless function — entry point for all /api/* requests.
  *
- * Vercel automatically deploys files in /api as serverless functions.
- * The [...path] catch-all syntax matches any path under /api.
+ * Imports the pre-built Express app bundle (api/_app.mjs). The bundle is
+ * created by scripts/build-api-bundle.mjs during the Vercel build step.
  *
- * The Express app (from artifacts/api-server/src/app.ts) is imported and
- * wrapped as a Vercel handler. Express 5 works natively with the
- * (req, res) signature that Vercel expects.
- *
- * Note: Express app.listen() is NOT called here — Vercel manages the HTTP
- * server. We only export the app's request handler.
+ * This file is kept minimal to avoid Vercel's TypeScript compilation issues
+ * with workspace dependencies, top-level await, and complex imports.
  */
 
-// Load env first — Vercel injects env vars, but for local dev with .env file
-// we need to load it manually. In production Vercel this is a no-op.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import app from "../artifacts/api-server/src/app";
+
+// Lazy-load the app to avoid cold-start issues
+let _app: any = null;
+
+async function getApp() {
+  if (!_app) {
+    // Dynamic import of the pre-built bundle
+    const mod = await import("./_app.mjs");
+    _app = mod.default;
+  }
+  return _app;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Express 5 app is a function that takes (req, res) — exactly what Vercel
-  // expects. We just pass through.
+  const app = await getApp();
   return app(req as any, res as any);
 }

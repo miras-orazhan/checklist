@@ -1,12 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/routing-sheet run build",
+  "buildCommand": "node scripts/build-api-bundle.mjs && pnpm --filter @workspace/routing-sheet run build",
   "outputDirectory": "artifacts/routing-sheet/dist/public",
   "functions": {
-    "api/**/*.ts": {
+    "api/index.ts": {
       "maxDuration": 30,
       "memory": 1024
     }
@@ -14,11 +13,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "destination": "/api"
     },
     {
       "source": "/photos/(.*)",
-      "destination": "/api/photos/$1"
+      "destination": "/api"
     },
     {
       "source": "/((?!api).*)",
