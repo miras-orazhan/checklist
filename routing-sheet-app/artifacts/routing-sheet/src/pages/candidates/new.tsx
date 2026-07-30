@@ -9,7 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft, CalendarDays, UserCircle, AlertCircle } from 'lucide-react';
 
@@ -291,9 +291,9 @@ export default function NewCandidate() {
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
+                        <p className="text-[0.8rem] text-muted-foreground">
                           12 цифр. Дата рождения и пол определяются автоматически из ИИН.
-                        </FormDescription>
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -327,9 +327,9 @@ export default function NewCandidate() {
                 {/* ── Опыт / образование / курсы ─────────────────────── */}
                 <div className="space-y-4 pt-4 border-t border-border">
                   <h3 className="text-sm font-medium text-foreground">Профессиональные данные</h3>
-                  <FormDescription>
+                  <p className="text-[0.8rem] text-muted-foreground">
                     Видят главный врач и аккаунт-менеджер при заполнении профиля.
-                  </FormDescription>
+                  </p>
                   <FormField
                     control={form.control}
                     name="education"
