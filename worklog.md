@@ -267,3 +267,32 @@ Stage Summary:
 - Скачивание: кнопка «Скачать» рядом с каждым фото, отдаёт оригинальный файл через Content-Disposition: attachment.
 - Сжатие: на фронте через Canvas API до max 1024×1024 px JPEG quality 0.85. Это уменьшает размер файла в 5-10 раз (типичное фото с телефона 4 МБ → 200-400 КБ).
 - Публичный доступ без auth: фото отдаются без авторизации (нужно для <img src="..."> в браузере). URLs — unguessable UUIDs, так что security through obscurity приемлемо для внутреннего HR-инструмента.
+
+---
+Task ID: photo-marketing-reuse-1
+Agent: main (Super Z)
+Task: Когда загрузил фотографию (от маркетинга через шаг marketing_photo), оно не появилось на странице главврача — пришлось отдельно загружать от имени главврача.
+
+Work Log:
+- Диагностика: фото сохраняется в двух разных полях:
+  • marketing_photo step → routing_steps.photo_url (загружает маркетолог)
+  • DoctorProfile → doctor_profiles.photo_url (загружает главврач)
+  Главврач не видел фото маркетинга, потому что DoctorProfile читал только doctor_profiles.photo_url.
+- Расширил routes/doctor-profiles.ts (GET /doctor-profiles/:id):
+  • Добавил запрос routing_steps WHERE stepType = 'marketing_photo' AND routingSheetId = :id
+  • В ответ добавил два новых поля: marketingPhotoUrl (URL фото маркетинга) и marketingPhotoStatus (статус шага)
+- Обновил pages/doctor-profile/[routingSheetId].tsx:
+  • useEffect теперь устанавливает photoUrl = profile.photoUrl ?? marketingPhotoUrl — fallback на маркетинговое фото, если у профиля врача своего нет
+  • Добавил кнопку «Использовать фото маркетинга» (с иконкой ImageIcon) — появляется только если marketingPhotoUrl есть И profile.photoUrl !== marketingPhotoUrl. По клику: PUT /api/doctor-profiles/:id с photoUrl = marketingPhotoUrl, фото сохраняется в профиль врача
+  • Обновил поясняющий текст: «Маркетинг уже загрузил фото — нажмите "Использовать фото маркетинга" или загрузите своё.»
+  • Добавил бейдж «Источник: профиль врача» / «Источник: маркетинг» / «Источник: только что загружено» — показывает откуда текущее фото
+- Тесты через API:
+  • GET /api/doctor-profiles/2 возвращает оба поля: profile.photoUrl, marketingPhotoUrl, marketingPhotoStatus ✓
+  • PUT /api/doctor-profiles/2 с photoUrl = marketingPhotoUrl → успешно сохраняется ✓
+  • Если profile.photoUrl пуст → фронтенд показывает marketingPhotoUrl как fallback ✓
+
+Stage Summary:
+- Главврач теперь видит фото, которое загрузил маркетинг, сразу при открытии профиля врача.
+- Может одним кликом «Использовать фото маркетинга» скопировать URL в профиль врача — не нужно загружать повторно.
+- Бейдж «Источник» показывает откуда текущее фото: профиль врача / маркетинг / только что загружено.
+- Если у главврача своё фото (лучшего качества или другое) — может загрузить через «Загрузить фото» как и раньше.

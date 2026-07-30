@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, doctorProfilesTable, routingSheetsTable, candidatesTable, positionsTable, branchesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, doctorProfilesTable, routingSheetsTable, candidatesTable, positionsTable, branchesTable, routingStepsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAudit } from "../lib/audit";
 
@@ -47,6 +47,16 @@ doctorProfilesRouter.get("/doctor-profiles/:routingSheetId", requireAuth, async 
   const [profile] = await db.select().from(doctorProfilesTable)
     .where(eq(doctorProfilesTable.routingSheetId, routingSheetId));
 
+  // Load the marketing_photo step (if any) so the chief physician can see
+  // the photo that marketing already uploaded, and optionally reuse it for
+  // the doctor profile instead of uploading a new one.
+  const [marketingStep] = await db.select().from(routingStepsTable)
+    .where(and(
+      eq(routingStepsTable.routingSheetId, routingSheetId),
+      eq(routingStepsTable.stepType, "marketing_photo"),
+    ));
+  const marketingPhotoUrl = marketingStep?.photoUrl ?? null;
+
   res.json({
     // Doctor profile (filled by chief physician) — null when not yet created
     profile: profile
@@ -65,6 +75,13 @@ doctorProfilesRouter.get("/doctor-profiles/:routingSheetId", requireAuth, async 
           createdAt: profile.createdAt,
         }
       : null,
+
+    // Photo uploaded by marketing on the marketing_photo step — shown to the
+    // chief physician so they can reuse it (one click) instead of re-uploading.
+    marketingPhotoUrl,
+
+    // Marketing step status — 'pending' | 'in_progress' | 'completed' | 'skipped'
+    marketingPhotoStatus: marketingStep?.status ?? null,
 
     // Candidate data — entered by recruiter, visible to chief physician and
     // account manager so they have full context when filling the profile.

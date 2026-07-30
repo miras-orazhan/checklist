@@ -57,6 +57,8 @@ export default function DoctorProfilePage() {
   const profile = resp?.profile ?? null;
   const candidate = resp?.candidate ?? null;
   const sheetCtx = resp?.routingSheet ?? null;
+  const marketingPhotoUrl = resp?.marketingPhotoUrl ?? null;
+  const marketingPhotoStatus = resp?.marketingPhotoStatus ?? null;
 
   // Find the routing step for this sheet
   const { data: steps } = useListRoutingSteps(
@@ -94,10 +96,15 @@ export default function DoctorProfilePage() {
         about: profile.about ?? '',
         proceduresRaw: Array.isArray(profile.procedures) ? (profile.procedures as string[]).join('\n') : '',
       });
-      setPhotoUrl(profile.photoUrl ?? null);
+      // Prefer the doctor-profile photo; fall back to the marketing photo
+      // so the chief physician immediately sees what marketing already uploaded.
+      setPhotoUrl(profile.photoUrl ?? marketingPhotoUrl ?? null);
       setPhotoPreview(null);
+    } else if (marketingPhotoUrl) {
+      // Profile not yet created, but marketing already has a photo — show it
+      setPhotoUrl(marketingPhotoUrl);
     }
-  }, [profile]);
+  }, [profile, marketingPhotoUrl]);
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
@@ -343,25 +350,75 @@ export default function DoctorProfilePage() {
                 {/* Upload button — only chief physician can change photo */}
                 <div className="flex-1 space-y-2">
                   {isChiefPhysician && !isStepCompleted && (
-                    <label className="inline-flex items-center justify-center gap-2 cursor-pointer text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4 rounded-md transition-colors">
-                      <Upload className="w-4 h-4" />
-                      {photoUrl ? 'Заменить фото' : 'Загрузить фото'}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={handlePhotoSelect}
-                        className="hidden"
-                        disabled={isUploadingPhoto}
-                      />
-                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="inline-flex items-center justify-center gap-2 cursor-pointer text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4 rounded-md transition-colors">
+                        <Upload className="w-4 h-4" />
+                        {photoUrl ? 'Заменить фото' : 'Загрузить фото'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handlePhotoSelect}
+                          className="hidden"
+                          disabled={isUploadingPhoto}
+                        />
+                      </label>
+
+                      {/* "Use marketing photo" — appears only when marketing has
+                          already uploaded a photo AND the doctor profile either
+                          doesn't have one or has a different one. Saves the
+                          chief physician from re-uploading the same file. */}
+                      {marketingPhotoUrl && profile?.photoUrl !== marketingPhotoUrl && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await upsertMutation.mutateAsync({
+                                routingSheetId,
+                                data: { photoUrl: marketingPhotoUrl } as any,
+                              });
+                              await qc.invalidateQueries({ queryKey: getGetDoctorProfileQueryKey(routingSheetId) });
+                              setPhotoUrl(marketingPhotoUrl);
+                              setPhotoPreview(null);
+                              toast({ title: 'Фото маркетинга использовано', description: 'Сохранено в профиль врача' });
+                            } catch (err: any) {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Ошибка',
+                                description: err?.data?.error || 'Не удалось сохранить',
+                              });
+                            }
+                          }}
+                          disabled={isUploadingPhoto || upsertMutation.isPending}
+                        >
+                          <ImageIcon className="w-4 h-4 mr-1" />
+                          Использовать фото маркетинга
+                        </Button>
+                      )}
+                    </div>
                   )}
                   <p className="text-xs text-muted-foreground">
                     {photoUrl
-                      ? 'Фото загружено и доступно всем сотрудникам. Можно скачать.'
+                      ? marketingPhotoUrl && profile?.photoUrl !== marketingPhotoUrl
+                        ? 'Фото загружено. Можно скачать или заменить. Также доступно фото от маркетинга.'
+                        : 'Фото загружено и доступно всем сотрудникам. Можно скачать.'
                       : isChiefPhysician
-                        ? 'Загрузите официальное фото врача. Автоматически сжимается до 1024×1024 px.'
+                        ? marketingPhotoUrl
+                          ? 'Маркетинг уже загрузил фото — нажмите «Использовать фото маркетинга» или загрузите своё.'
+                          : 'Загрузите официальное фото врача. Автоматически сжимается до 1024×1024 px.'
                         : 'Фото ещё не загружено главным врачом.'}
                   </p>
+                  {/* Source badge — shows where the current photo came from */}
+                  {photoUrl && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {profile?.photoUrl && photoUrl === profile.photoUrl
+                        ? 'Источник: профиль врача'
+                        : marketingPhotoUrl && photoUrl === marketingPhotoUrl
+                          ? 'Источник: маркетинг (шаг «Фото»)'
+                          : 'Источник: только что загружено'}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
