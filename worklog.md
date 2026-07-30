@@ -51,3 +51,23 @@ Stage Summary:
 - Старые письма (отправленные до фикса) — останутся битыми, но новые офферы дают правильные ссылки.
 - Проверено на оффере fd6d4d1f-c797-4c82-9267-641c666c40ed (Offer #68) — ссылка теперь: https://preview-zai-web.space-z.ai/offer/fd6d4d1f-c797-4c82-9267-641c666c40ed
 - Для прод-окружения нужно либо оставить PUBLIC_BASE_URL в env, либо (лучше) зайти в админку → Integrations и задать app_base_url там — это перебьёт env.
+
+---
+Task ID: rebuild-1
+Agent: main (Super Z)
+Task: Пересобрать и запустить приложение после того как пользователь сообщил что нужно пересобрать.
+
+Work Log:
+- Обнаружил что node_modules исчез (возможно системный cleanup) — переустановил pnpm глобально (npm install -g pnpm@latest) и зависимости (pnpm install — 563 пакета за 9.7s).
+- При первом запуске api-server упал с ошибкой "PGlite failed to initialize properly" — предыдущий kill -9 повредил файловую БД.
+- Забэкапил повреждённую БД в routing-sheet-pglite.broken-<ts> и создал новую директорию.
+- Запустил migrate.ts — создал все 14 таблиц.
+- Запустил seed.ts — 2 филиала, 3 позиции, 13 пользователей (все роли), 3 кандидата с офферами и маршрутными листами.
+- Запустил start.sh — оба сервера (api на :5000, Vite на :3000) поднялись успешно.
+- Проверил через шлюз :81 — /api/healthz возвращает ok, фронтенд отдаёт index.html.
+
+Stage Summary:
+- Приложение снова работает по ссылке https://preview-zai-web.space-z.ai/
+- БД свежая — старые тестовые данные (кандидаты Мираз и Тест Ссылочный) потеряны при сбросе PGlite, но 3 демо-кандидата засеяны.
+- Учётки из seed (пароль password123): admin@demo.ru, recruiter@demo.ru, hr@demo.ru, marketing@demo.ru, tb@demo.ru, it@demo.ru, audit@demo.ru, chief@demo.ru, account@demo.ru, accounting@demo.ru, security@demo.ru, adaptation@demo.ru, medtech@demo.ru
+- На будущее: для остановки серверов использовать мягкое kill (без -9), чтобы PGlite корректно закрывал файлы.
