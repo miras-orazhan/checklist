@@ -15,11 +15,10 @@ api/_app.mjs
 .env.production
 .env.*.local
 
-# Database files (PGlite dev data)
+# Database files (PGlite dev data) — only root-level /db/, NOT lib/db/
 *.db
 *.db-journal
-db/
-home/z/my-project/db/
+/db/
 
 # Photos (local dev storage)
 photos/
