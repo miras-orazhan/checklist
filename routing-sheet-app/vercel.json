@@ -1,10 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "framework": "vite",
-  "buildCommand": "pnpm install --frozen-lockfile && pnpm run build:vercel",
-  "outputDirectory": "artifacts/routing-sheet/dist/public",
   "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/routing-sheet run build",
+  "outputDirectory": "artifacts/routing-sheet/dist/public",
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 30,
@@ -24,8 +23,5 @@
       "src": "/((?!api).*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "NEXT_TELEMETRY_DISABLED": "1"
-  }
+  ]
 }

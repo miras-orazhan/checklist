@@ -10,7 +10,9 @@ import { offersRouter } from "./offers";
 import { routingSheetsRouter } from "./routing-sheets";
 import { routingStepsRouter } from "./routing-steps";
 import { dashboardRouter } from "./dashboard";
-import { storageRouter } from "./storage";
+// storageRouter disabled — uses Replit Google Cloud Storage which is not
+// available on Vercel. We use photosRouter (lib/photoStorage.ts) instead.
+// import { storageRouter } from "./storage";
 import { photosRouter } from "./photos";
 import { doctorProfilesRouter } from "./doctor-profiles";
 import { terminationSheetsRouter } from "./termination-sheets";
@@ -37,7 +39,7 @@ router.use(offersRouter);
 router.use(routingSheetsRouter);
 router.use(routingStepsRouter);
 router.use(dashboardRouter);
-router.use(storageRouter);
+// router.use(storageRouter); // disabled — see comment above
 router.use(photosRouter);
 router.use(doctorProfilesRouter);
 router.use(terminationSheetsRouter);

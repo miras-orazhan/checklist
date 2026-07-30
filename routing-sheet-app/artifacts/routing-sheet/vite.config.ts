@@ -3,8 +3,6 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
-import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
-
 // PORT is optional — defaults to 3000 for local dev.
 // In production (Vercel) this is ignored — Vite just builds static files.
 const rawPort = process.env.PORT ?? '3000';
@@ -23,9 +21,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    runtimeErrorOverlay(),
-    // Replit cartographer + dev banner only load when REPL_ID is set —
-    // they're no-ops in production / local dev.
+    // Replit dev plugins — only load when REPL_ID is set (Replit environment).
+    // They're no-ops in production / local dev / Vercel.
     ...(process.env.NODE_ENV !== 'production' && process.env.REPL_ID !== undefined
       ? [
           await import('@replit/vite-plugin-cartographer').then((m) =>
@@ -35,6 +32,9 @@ export default defineConfig({
           ),
           await import('@replit/vite-plugin-dev-banner').then((m) =>
             m.devBanner(),
+          ),
+          await import('@replit/vite-plugin-runtime-error-modal').then((m) =>
+            m.default(),
           ),
         ]
       : []),
