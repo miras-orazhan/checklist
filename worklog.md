@@ -135,3 +135,20 @@ Stage Summary:
   • Татьяна Фёдорова: https://preview-zai-web.space-z.ai/status/61e21ea6-23ca-4d1a-976f-836bcff6cbc5
   • Илья Громов (врач): https://preview-zai-web.space-z.ai/status/ba94fbb4-783d-42db-b3f7-0a6be0dc7443
   • Светлана Ким: https://preview-zai-web.space-z.ai/status/70e18388-6c14-4536-9c2a-165c861de8f1
+
+---
+Task ID: api-watchdog-1
+Agent: main (Super Z)
+Task: API-сервер постоянно падает между bash-сессиями. Нужно сделать чтобы он автоматически перезапускался.
+
+Work Log:
+- Диагностика: bash tool в этом sandbox убивает все дочерние процессы при завершении вызова, даже если они запущены через `setsid + nohup + disown`. Vite выживал, потому что успел стать child of init (PID 1) до того как bash-сессия закрывалась, а api-server на tsx — нет (он запускается дольше из-за PGlite init).
+- Решение: добавил watchdog-скрипт scripts/watchdog-loop.sh — бесконечный цикл, каждые 10 секунд проверяет /api/healthz. Если 2 раза подряд нет ответа — pkill -9 старого tsx, ждёт 2 сек, запускает новый экземпляр через `setsid nohup ... </dev/null >>$LOG 2>&1 &`. disown отвязывает от watchdog'а.
+- Создал scripts/start-all.sh — единый старт: убивает старые процессы, запускает api-server + Vite + watchdog, все через setsid+nohup+/dev/null stdio. После запуска все три процесса становятся детьми init (PID 1).
+- Проверено: через 12 секунд после старта все три процесса живы с PPID=1, API отвечает ok, логин работает, watchdog-лог пустой (т.к. перезапуск не понадобился).
+
+Stage Summary:
+- API больше не падает надолго: watchdog автоматически поднимает его в течение ~15 секунд.
+- Запуск одной командой: bash /home/z/my-project/routing-sheet-app/scripts/start-all.sh
+- Логи: /tmp/api-server.log (вывод api), /tmp/vite.log (Vite), /tmp/watchdog.log (watchdog).
+- Если api упадёт снова — это видно в /tmp/watchdog.log (запись "api-server not responding, restarting...").
