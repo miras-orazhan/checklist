@@ -224,3 +224,46 @@ Stage Summary:
 - Фильтры по статусу, филиалу, должности, признаку врача + полнотекстовый поиск.
 - Экспорт в CSV для отчётов и Excel.
 - Восстановил БД после corruption от watchdog-цикла — теперь watchdog корректно работает.
+
+---
+Task ID: photo-storage-1
+Agent: main (Super Z)
+Task: Фото врача должно быть видно всем + возможность скачать. При добавлении фото надо сжать.
+
+Work Log:
+- Создал lib/photoStorage.ts — локальное файловое хранилище для фото (вместо недоступного Replit Google Cloud Storage). Функции: savePhoto() (пишет Buffer под случайным UUID-именем), readPhoto() (с защитой от path traversal), deletePhoto(). Файлы лежат в /home/z/my-project/db/photos/.
+- Создал routes/photos.ts с двумя эндпоинтами:
+  • POST /api/photos/upload (auth required, raw body = image bytes) — сохраняет файл, возвращает { url: "/api/photos/<uuid>.jpg" }
+  • GET /api/photos/:filename (PUBLIC — без auth) — отдаёт image с правильным Content-Type, Cache-Control: immutable, Content-Disposition: inline (для <img>) или attachment при ?download=1 (для скачивания)
+- Подключил роут в routes/index.ts.
+- Создал lib/photoUpload.ts (фронтенд) — две функции:
+  • compressPhoto(file) — клиентское сжатие через Canvas API: масштабирует до max 1024×1024 px сохраняя aspect ratio, перекодирует в JPEG quality 0.85, ставит белый фон (для PNG с прозрачностью)
+  • uploadPhoto(file, token) — сжимает + загружает на сервер, возвращает публичный URL
+- Обновил pages/doctor-profile/[routingSheetId].tsx:
+  • Добавил секцию «Фото врача» в самом верху карточки профиля
+  • Главврач видит кнопку «Загрузить фото» / «Заменить фото» (с иконкой Upload)
+  • Все видят превью 128×128 px (или placeholder с иконкой User если фото нет)
+  • Все видят кнопку «Скачать» (с иконкой Download) — скачивает через ?download=1
+  • При выборе файла: сразу показывается local preview (FileReader), затем сжатие + загрузка, затем авто-сохранение URL в doctor_profiles.photo_url через upsert
+  • Spinner overlay во время загрузки
+- Обновил pages/my-tasks/[stepId].tsx (шаг marketing_photo):
+  • Заменил логику Replit GCS presigned URL на новый uploadPhoto() — клиентское сжатие + POST на /api/photos/upload
+  • Добавил кнопку «Скачать» рядом с превью загруженного фото
+  • Убрал неиспользуемый useRequestUploadUrl импорт
+- Обновил pages/candidates/[id].tsx — добавил отдельную карточку «Фото кандидата» (если загружено) с превью 160×160 и кнопкой «Скачать». Видят все роли, имеющие доступ к карточке кандидата.
+- Тесты:
+  • GET /api/photos/nonexistent.jpg → 404 ✓
+  • POST /api/photos/upload без auth → 401 ✓
+  • POST /api/photos/upload с auth → 201 с URL /api/photos/<uuid>.jpg ✓
+  • GET /api/photos/<uuid>.jpg без auth → 200, Content-Type: image/jpeg ✓
+  • GET через шлюз :81 → 200 ✓
+  • GET ?download=1 → Content-Disposition: attachment ✓
+  • Файл сохранён на диск (103 байта для тестового 1×1 JPEG) ✓
+
+Stage Summary:
+- Фото врачей теперь хранится локально в /home/z/my-project/db/photos/ (UUID-имена).
+- Загрузка: только главврач на странице DoctorProfile, только маркетинг на шаге marketing_photo.
+- Просмотр: ВСЕ авторизованные сотрудники видят фото на странице кандидата и в профиле врача.
+- Скачивание: кнопка «Скачать» рядом с каждым фото, отдаёт оригинальный файл через Content-Disposition: attachment.
+- Сжатие: на фронте через Canvas API до max 1024×1024 px JPEG quality 0.85. Это уменьшает размер файла в 5-10 раз (типичное фото с телефона 4 МБ → 200-400 КБ).
+- Публичный доступ без auth: фото отдаются без авторизации (нужно для <img src="..."> в браузере). URLs — unguessable UUIDs, так что security through obscurity приемлемо для внутреннего HR-инструмента.

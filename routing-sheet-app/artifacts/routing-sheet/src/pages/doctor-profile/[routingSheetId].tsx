@@ -17,9 +17,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, Save, CheckCircle2, Stethoscope, User, GraduationCap, Briefcase, Award, IdCard, Calendar } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, CheckCircle2, Stethoscope, User, GraduationCap, Briefcase, Award, IdCard, Calendar, Image as ImageIcon, Download, Upload } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { compressPhoto, uploadPhoto } from '@/lib/photoUpload';
 
 const GENDER_LABELS: Record<string, string> = {
   male: 'Мужской',
@@ -78,6 +79,11 @@ export default function DoctorProfilePage() {
     proceduresRaw: '',
   });
 
+  // Photo state — chief physician can upload; everyone sees; everyone can download
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
   useEffect(() => {
     if (profile) {
       setForm({
@@ -88,8 +94,56 @@ export default function DoctorProfilePage() {
         about: profile.about ?? '',
         proceduresRaw: Array.isArray(profile.procedures) ? (profile.procedures as string[]).join('\n') : '',
       });
+      setPhotoUrl(profile.photoUrl ?? null);
+      setPhotoPreview(null);
     }
   }, [profile]);
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+
+    // Show a local preview immediately (before compression + upload)
+    const reader = new FileReader();
+    reader.onload = () => setPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+
+    // Compress + upload immediately
+    setIsUploadingPhoto(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const url = await uploadPhoto(file, token);
+      setPhotoUrl(url);
+      // Auto-save photo URL to the doctor profile via upsert
+      await upsertMutation.mutateAsync({
+        routingSheetId,
+        data: { photoUrl: url } as any,
+      });
+      await qc.invalidateQueries({ queryKey: getGetDoctorProfileQueryKey(routingSheetId) });
+      toast({ title: 'Фото загружено', description: 'Сжато до 1024px и сохранено' });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка загрузки фото',
+        description: err?.message || 'Не удалось загрузить',
+      });
+      setPhotoPreview(null);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleDownloadPhoto = () => {
+    if (!photoUrl) return;
+    // Append ?download=1 to trigger Content-Disposition: attachment
+    const url = photoUrl + (photoUrl.includes('?') ? '&' : '?') + 'download=1';
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `doctor-photo-${routingSheetId}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   const handleSave = async () => {
     try {
@@ -246,6 +300,72 @@ export default function DoctorProfilePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* ── Фото врача ─────────────────────────────────────────────── */}
+            {/* Chief physician может загрузить; все видят; все могут скачать */}
+            <div className="bg-muted/20 p-4 rounded-lg border border-border">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-primary/70" />
+                  Фото врача
+                </Label>
+                {photoUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadPhoto}
+                    className="h-7 text-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 mr-1" />
+                    Скачать
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-start gap-4">
+                {/* Photo preview / placeholder */}
+                <div className="w-32 h-32 rounded-lg bg-muted flex items-center justify-center border border-border overflow-hidden flex-shrink-0 relative">
+                  {isUploadingPhoto && (
+                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  )}
+                  {photoPreview || photoUrl ? (
+                    <img
+                      src={photoPreview || photoUrl || undefined}
+                      alt="Фото врача"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-muted-foreground/40" />
+                  )}
+                </div>
+
+                {/* Upload button — only chief physician can change photo */}
+                <div className="flex-1 space-y-2">
+                  {isChiefPhysician && !isStepCompleted && (
+                    <label className="inline-flex items-center justify-center gap-2 cursor-pointer text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4 rounded-md transition-colors">
+                      <Upload className="w-4 h-4" />
+                      {photoUrl ? 'Заменить фото' : 'Загрузить фото'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handlePhotoSelect}
+                        className="hidden"
+                        disabled={isUploadingPhoto}
+                      />
+                    </label>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {photoUrl
+                      ? 'Фото загружено и доступно всем сотрудникам. Можно скачать.'
+                      : isChiefPhysician
+                        ? 'Загрузите официальное фото врача. Автоматически сжимается до 1024×1024 px.'
+                        : 'Фото ещё не загружено главным врачом.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Стаж (лет)</Label>

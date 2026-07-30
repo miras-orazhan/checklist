@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { useGetRoutingStep, getGetRoutingStepQueryKey, useCompleteRoutingStep, useRequestUploadUrl, useListBranches, getListBranchesQueryKey, useListPositions, getListPositionsQueryKey } from '@workspace/api-client-react';
+import { useGetRoutingStep, getGetRoutingStepQueryKey, useCompleteRoutingStep, useListBranches, getListBranchesQueryKey, useListPositions, getListPositionsQueryKey } from '@workspace/api-client-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Loader2, ArrowLeft, CheckCircle2, UploadCloud, FileImage, Image as ImageIcon } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, UploadCloud, FileImage, Image as ImageIcon, Download } from 'lucide-react';
+import { uploadPhoto } from '@/lib/photoUpload';
 
 const STEP_LABELS: Record<string, string> = {
   hr_registration: 'Оформление',
@@ -48,7 +49,6 @@ export default function TaskDetail() {
     }
   }, [step, setLocation]);
   const completeMutation = useCompleteRoutingStep();
-  const requestUpload = useRequestUploadUrl();
 
   // Data for HR registration step
   const isHrStep = step?.stepType === 'hr_registration';
@@ -74,30 +74,16 @@ export default function TaskDetail() {
     let finalPhotoUrl = photoUrl;
 
     // Handle photo upload if needed (marketing_photo step)
+    // Uses our local photo storage endpoint with client-side compression.
     if (step?.stepType === 'marketing_photo' && photoFile && !finalPhotoUrl) {
       try {
         setIsUploading(true);
-        // 1. Get presigned URL
-        const uploadInfo = await requestUpload.mutateAsync({
-          data: {
-            name: photoFile.name,
-            size: photoFile.size,
-            contentType: photoFile.type
-          }
-        });
-        
-        // 2. PUT directly to S3
-        await fetch(uploadInfo.uploadURL, {
-          method: 'PUT',
-          body: photoFile,
-          headers: { 'Content-Type': photoFile.type }
-        });
-
-        // 3. Save object path
-        finalPhotoUrl = uploadInfo.objectPath;
+        const token = localStorage.getItem('auth_token');
+        // uploadPhoto() compresses to 1024px JPEG quality 0.85 before upload
+        finalPhotoUrl = await uploadPhoto(photoFile, token);
       } catch (err: any) {
         setIsUploading(false);
-        toast({ variant: 'destructive', title: 'Ошибка загрузки', description: 'Не удалось загрузить фото' });
+        toast({ variant: 'destructive', title: 'Ошибка загрузки', description: err?.message || 'Не удалось загрузить фото' });
         return;
       } finally {
         setIsUploading(false);
@@ -237,7 +223,17 @@ export default function TaskDetail() {
                 )}
                 {step.stepType === 'marketing_photo' && isCompleted && step.photoUrl && (
                   <div className="bg-muted/20 p-4 rounded-lg border border-border">
-                    <p className="text-sm font-medium mb-2">Загруженное фото:</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">Загруженное фото:</p>
+                      <a
+                        href={step.photoUrl + (step.photoUrl.includes('?') ? '&' : '?') + 'download=1'}
+                        download
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Скачать
+                      </a>
+                    </div>
                     <div className="w-32 h-32 rounded-lg bg-muted flex items-center justify-center border border-border overflow-hidden">
                       <img src={step.photoUrl} alt="Фото кандидата" className="w-full h-full object-cover" />
                     </div>

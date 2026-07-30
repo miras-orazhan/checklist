@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, Mail, Link as LinkIcon, CheckCircle2, Clock, XCircle, ArrowRight, User, Briefcase, Phone, Mail as MailIcon, Award, UserCheck, ShieldAlert, IdCard, Calendar, UserCircle } from 'lucide-react';
+import { Loader2, Mail, Link as LinkIcon, CheckCircle2, Clock, XCircle, ArrowRight, User, Briefcase, Phone, Mail as MailIcon, Award, UserCheck, ShieldAlert, IdCard, Calendar, UserCircle, Image as ImageIcon, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -229,6 +229,51 @@ export default function CandidateDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* ── Фото кандидата (если загружено маркетингом) ─────────────── */}
+          {/* Видят все роли, которые имеют доступ к карточке кандидата. */}
+          {/* Можно скачать. */}
+          {(() => {
+            const photoStep = routingSheet?.steps?.find(
+              (s: any) => s.stepType === 'marketing_photo',
+            );
+            const photoUrl = photoStep?.photoUrl;
+            if (!photoUrl) return null;
+            return (
+              <Card>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-primary" />
+                      Фото кандидата
+                    </CardTitle>
+                    <a
+                      href={photoUrl + (photoUrl.includes('?') ? '&' : '?') + 'download=1'}
+                      download
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Скачать
+                    </a>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="w-40 h-40 rounded-lg bg-muted flex items-center justify-center border border-border overflow-hidden mx-auto">
+                    <img
+                      src={photoUrl}
+                      alt={`Фото: ${candidate.fullName}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  {photoStep.status === 'completed' && (
+                    <p className="text-xs text-muted-foreground text-center mt-3">
+                      Фото загружено маркетингом
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           <Card>
             <CardHeader className="pb-4">
