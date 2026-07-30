@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/components/auth/AuthContext';
 import {
   LayoutDashboard, Users, CheckSquare, LogOut, FileText, Settings,
-  User as UserIcon, UserMinus, ClipboardList, ShieldCheck,
+  User as UserIcon, UserMinus, ClipboardList, ShieldCheck, IdCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,9 @@ const CANDIDATES_ROLES = [
   'admin', 'hr', 'recruiter', 'chief_physician', 'account_manager',
 ];
 
+// Roles that can see the employee registry
+const EMPLOYEES_ROLES = ['admin', 'hr', 'recruiter', 'chief_physician', 'account_manager'];
+
 interface AppLayoutProps {
   children: React.ReactNode;
   title: string;
@@ -63,6 +66,7 @@ export function AppLayout({ children, title, actions }: AppLayoutProps) {
     { href: '/my-tasks', label: 'Мои задачи (найм)', icon: CheckSquare, show: true },
     { href: '/termination-tasks', label: 'Мои задачи (увольнение)', icon: ClipboardList, show: OFFBOARDING_ROLES.includes(role) },
     { href: '/candidates', label: 'Кандидаты', icon: Users, show: CANDIDATES_ROLES.includes(role) },
+    { href: '/employees', label: 'Сотрудники', icon: IdCard, show: EMPLOYEES_ROLES.includes(role) },
     { href: '/termination', label: 'Увольнения', icon: UserMinus, show: HIRING_ROLES.includes(role) || role === 'admin' },
     { href: '/admin', label: 'Администрирование', icon: ShieldCheck, show: role === 'admin' },
   ].filter(item => item.show);
