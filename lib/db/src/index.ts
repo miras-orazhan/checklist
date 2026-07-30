@@ -16,8 +16,8 @@
  */
 
 import { drizzle } from "drizzle-orm/node-postgres";
-import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
-import { PGlite } from "@electric-sql/pglite";
+import type { drizzle as DrizzlePgliteFn } from "drizzle-orm/pglite";
+import type { PGlite } from "@electric-sql/pglite";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
@@ -46,14 +46,22 @@ function resolvePglitePath(url: string): string | undefined {
 
 // ─── PGlite singleton (dev) ──────────────────────────────────────────────────
 let _pglite: PGlite | null = null;
+let _drizzlePglite: typeof drizzlePglite | null = null;
 
 export async function getPglite(): Promise<PGlite> {
   if (_pglite) return _pglite;
   const path = resolvePglitePath(databaseUrl);
+  const { PGlite: PGliteClass } = await import("@electric-sql/pglite");
   _pglite = path
-    ? await PGlite.create({ dataDir: path })
-    : await PGlite.create();
+    ? await PGliteClass.create({ dataDir: path })
+    : await PGliteClass.create();
   return _pglite;
+}
+
+async function getDrizzlePglite() {
+  if (_drizzlePglite) return _drizzlePglite;
+  _drizzlePglite = (await import("drizzle-orm/pglite")).drizzle;
+  return _drizzlePglite;
 }
 
 // ─── Postgres pool singleton (production) ────────────────────────────────────
@@ -97,9 +105,10 @@ export async function getDb(): Promise<AppDb> {
   if (_db) return _db;
   if (shouldUsePglite(databaseUrl)) {
     const pglite = await getPglite();
+    const drizzlePgliteFn = await getDrizzlePglite();
     // Cast through unknown — PGlite and node-postgres drizzle instances have
     // incompatible TypeScript types but identical runtime API for our usage.
-    _db = drizzlePglite(pglite, { schema }) as unknown as AppDb;
+    _db = drizzlePgliteFn(pglite, { schema }) as unknown as AppDb;
   } else {
     _db = drizzle(getPool(), { schema }) as AppDb;
   }
