@@ -10,7 +10,13 @@
  * office will handle their step. For steps that don't require any employee
  * action (e.g. accounting calculation, security check) the instructions field
  * explains that nothing is required from them — just wait for confirmation.
+ *
+ * Admin can override any of these per step type via the `step_meta` table
+ * (managed through /admin/step-meta UI); see loadTerminationStepMeta().
  */
+
+import { db, stepMetaTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 export interface TerminationStepMeta {
   label: string;
@@ -103,3 +109,28 @@ export const TERMINATION_PUBLIC_STEP_ORDER: string[] = [
   // doctor-only, shown last when present
   "account_manager_delete_profile",
 ];
+
+/**
+ * Load admin overrides from the `step_meta` table (sheet_kind = 'termination')
+ * and merge them with the hardcoded defaults. Admin-edited values win.
+ */
+export async function loadTerminationStepMeta(): Promise<Record<string, TerminationStepMeta>> {
+  const result: Record<string, TerminationStepMeta> = {};
+  for (const [k, v] of Object.entries(TERMINATION_STEP_META)) {
+    result[k] = { ...v };
+  }
+  try {
+    const rows = await db.select().from(stepMetaTable)
+      .where(eq(stepMetaTable.sheetKind, "termination"));
+    for (const row of rows) {
+      result[row.stepType] = {
+        label: row.label,
+        cabinet: row.cabinet ?? "",
+        instructions: row.instructions ?? "",
+      };
+    }
+  } catch {
+    // Fall back to defaults if DB unavailable
+  }
+  return result;
+}

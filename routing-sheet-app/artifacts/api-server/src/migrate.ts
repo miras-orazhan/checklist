@@ -204,6 +204,20 @@ CREATE TABLE IF NOT EXISTS email_templates (
   updated_by TEXT
 );
 
+CREATE TABLE IF NOT EXISTS step_meta (
+  id SERIAL PRIMARY KEY,
+  sheet_kind TEXT NOT NULL,
+  step_type TEXT NOT NULL,
+  label TEXT NOT NULL,
+  cabinet TEXT,
+  instructions TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT
+);
+
+-- One row per (sheet_kind, step_type) — enforced via unique index
+CREATE UNIQUE INDEX IF NOT EXISTS idx_step_meta_kind_type ON step_meta(sheet_kind, step_type);
+
 -- Helpful indexes (idempotent)
 CREATE INDEX IF NOT EXISTS idx_offers_token ON offers(token);
 CREATE INDEX IF NOT EXISTS idx_routing_sheets_status_token ON routing_sheets(status_token);

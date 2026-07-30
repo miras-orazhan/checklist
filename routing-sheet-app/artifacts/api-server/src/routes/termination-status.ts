@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, terminationSheetsTable, terminationStepsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { TERMINATION_STEP_LABELS } from "../lib/terminationSheet";
-import { TERMINATION_STEP_META, TERMINATION_PUBLIC_STEP_ORDER } from "../lib/terminationStepMeta";
+import { loadTerminationStepMeta, TERMINATION_PUBLIC_STEP_ORDER } from "../lib/terminationStepMeta";
 
 export const terminationStatusRouter = Router();
 
@@ -17,6 +17,9 @@ terminationStatusRouter.get("/termination-status/:token", async (req, res): Prom
   const steps = await db.select().from(terminationStepsTable)
     .where(eq(terminationStepsTable.terminationSheetId, sheet.id));
 
+  // Load merged step metadata (defaults + admin overrides from step_meta table)
+  const metaMap = await loadTerminationStepMeta();
+
   // Build a map stepType → step (DB row) for ordering lookup
   const byType = new Map(steps.map(s => [s.stepType, s]));
 
@@ -26,7 +29,7 @@ terminationStatusRouter.get("/termination-status/:token", async (req, res): Prom
     .filter(stepType => byType.has(stepType))
     .map(stepType => {
       const s = byType.get(stepType)!;
-      const meta = TERMINATION_STEP_META[stepType];
+      const meta = metaMap[stepType];
       return {
         stepType,
         label: meta?.label ?? TERMINATION_STEP_LABELS[stepType] ?? stepType,

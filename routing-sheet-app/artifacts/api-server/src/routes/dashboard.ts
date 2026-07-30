@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, candidatesTable, routingSheetsTable, routingStepsTable, branchesTable, positionsTable, auditLogTable } from "@workspace/db";
 import { eq, desc, count, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
-import { ROUTING_STEP_META } from "../lib/routingStepMeta";
+import { loadRoutingStepMeta } from "../lib/routingStepMeta";
 
 export const dashboardRouter = Router();
 
@@ -132,12 +132,15 @@ dashboardRouter.get("/candidate-status/:token", async (req, res): Promise<void> 
   const steps = await db.select().from(routingStepsTable).where(eq(routingStepsTable.routingSheetId, sheet.id));
   const [candidate] = await db.select().from(candidatesTable).where(eq(candidatesTable.id, sheet.candidateId));
 
+  // Load merged step metadata (defaults + admin overrides from step_meta table)
+  const metaMap = await loadRoutingStepMeta();
+
   // Public steps exclude background doctor tasks (doctor_profile, site_publication)
   // — the candidate never visits these explicitly.
   const publicSteps = steps
     .filter(s => !s.isBackground)
     .map(s => {
-      const meta = ROUTING_STEP_META[s.stepType];
+      const meta = metaMap[s.stepType];
       return {
         stepType: s.stepType,
         label: meta?.label ?? STEP_LABELS[s.stepType] ?? s.stepType,

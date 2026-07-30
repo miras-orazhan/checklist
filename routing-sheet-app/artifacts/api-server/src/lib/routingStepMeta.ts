@@ -6,14 +6,17 @@
  *   cabinet      — physical office / room / department the candidate needs to visit
  *   instructions — what the candidate needs to bring or do at this step
  *
- * These are static defaults — they apply to every branch. If a branch needs
- * different cabinet numbers, the value can later be overridden via the
- * integration_configs table (keyed e.g. `step_meta.hr_registration.cabinet`).
+ * These are static defaults — they apply to every branch. Admin can override
+ * them per step type via the `step_meta` table (managed through
+ * /admin/step-meta UI); see loadRoutingStepMetaOverrides().
  *
  * The instructions text is shown verbatim on the public candidate status page,
  * so keep it short, action-oriented, and in Russian (the spec calls for
  * Russian-only UI).
  */
+
+import { db, stepMetaTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 export interface RoutingStepMeta {
   label: string;
@@ -95,3 +98,35 @@ export const ROUTING_PUBLIC_STEP_ORDER: string[] = [
   "audit_training",
   "final_review",
 ];
+
+/**
+ * Load admin overrides from the `step_meta` table (sheet_kind = 'routing') and
+ * merge them with the hardcoded defaults. Admin-edited values win.
+ *
+ * Returns a complete map keyed by stepType, suitable for direct use by the
+ * candidate-status endpoint.
+ */
+export async function loadRoutingStepMeta(): Promise<Record<string, RoutingStepMeta>> {
+  const result: Record<string, RoutingStepMeta> = {};
+  // Start with defaults
+  for (const [k, v] of Object.entries(ROUTING_STEP_META)) {
+    result[k] = { ...v };
+  }
+
+  // Apply DB overrides
+  try {
+    const rows = await db.select().from(stepMetaTable)
+      .where(eq(stepMetaTable.sheetKind, "routing"));
+    for (const row of rows) {
+      result[row.stepType] = {
+        label: row.label,
+        cabinet: row.cabinet ?? "",
+        instructions: row.instructions ?? "",
+      };
+    }
+  } catch {
+    // Fall back to defaults if DB unavailable (shouldn't happen in normal flow)
+  }
+
+  return result;
+}

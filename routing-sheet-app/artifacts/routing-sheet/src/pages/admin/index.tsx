@@ -3,12 +3,13 @@ import { Link } from 'wouter';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/components/auth/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Building2, Briefcase, Mail, Plug, BarChart3, ClipboardList, RotateCcw, Shield } from 'lucide-react';
+import { Users, Building2, Briefcase, Mail, Plug, BarChart3, ClipboardList, RotateCcw, Shield, MapPin } from 'lucide-react';
 
 const ADMIN_SECTIONS = [
   { href: '/admin/users', icon: Users, title: 'Пользователи', description: 'Создание, редактирование, деактивация учётных записей' },
   { href: '/admin/branches', icon: Building2, title: 'Филиалы', description: 'Структура филиалов, главные врачи, заместители' },
   { href: '/admin/positions', icon: Briefcase, title: 'Должности', description: 'Справочник должностей, признак врача' },
+  { href: '/admin/step-meta', icon: MapPin, title: 'Кабинеты и инструкции', description: 'Номера кабинетов и инструкции для каждого шага обходного листа' },
   { href: '/admin/email-templates', icon: Mail, title: 'Email-шаблоны', description: 'Редактирование текстов транзакционных писем' },
   { href: '/admin/integrations', icon: Plug, title: 'Интеграции и SLA', description: 'GAS, Bitrix24, пороги SLA по шагам' },
   { href: '/admin/audit-log', icon: BarChart3, title: 'Журнал аудита', description: 'Полная история действий с фильтрами' },

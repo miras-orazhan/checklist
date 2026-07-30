@@ -55,6 +55,7 @@ import AdminIntegrations from '@/pages/admin/integrations';
 import AdminAuditLog from '@/pages/admin/audit-log';
 import AdminNotificationLog from '@/pages/admin/notification-log';
 import AdminTerminationRestore from '@/pages/admin/termination-restore';
+import AdminStepMeta from '@/pages/admin/step-meta';
 
 function App() {
   return (
@@ -100,6 +101,7 @@ function App() {
               <Route path="/admin/audit-log" component={() => <ProtectedRoute component={AdminAuditLog} />} />
               <Route path="/admin/notification-log" component={() => <ProtectedRoute component={AdminNotificationLog} />} />
               <Route path="/admin/termination-restore" component={() => <ProtectedRoute component={AdminTerminationRestore} />} />
+              <Route path="/admin/step-meta" component={() => <ProtectedRoute component={AdminStepMeta} />} />
 
               <Route component={NotFound} />
             </Switch>

@@ -152,3 +152,39 @@ Stage Summary:
 - Запуск одной командой: bash /home/z/my-project/routing-sheet-app/scripts/start-all.sh
 - Логи: /tmp/api-server.log (вывод api), /tmp/vite.log (Vite), /tmp/watchdog.log (watchdog).
 - Если api упадёт снова — это видно в /tmp/watchdog.log (запись "api-server not responding, restarting...").
+
+---
+Task ID: admin-step-meta-1
+Agent: main (Super Z)
+Task: Добавить админу возможность редактирования кабинета и инструкций для каждого шага обходного листа (найм + увольнение).
+
+Work Log:
+- Создал lib/db/src/schema/step_meta.ts — новая таблица step_meta (sheet_kind, step_type, label, cabinet, instructions, updated_at, updated_by). Composite uniqueness на (sheet_kind, step_type) через CREATE UNIQUE INDEX в migrate.ts.
+- Подключил в lib/db/src/schema/index.ts.
+- Добавил CREATE TABLE step_meta + CREATE UNIQUE INDEX в migrate.ts.
+- Расширил lib/routingStepMeta.ts — добавил функцию loadRoutingStepMeta(), которая мёржит дефолтные значения с DB-оверрайдами.
+- Аналогично расширил lib/terminationStepMeta.ts — loadTerminationStepMeta().
+- Обновил routes/dashboard.ts (/candidate-status/:token) — теперь использует loadRoutingStepMeta() вместо хардкода.
+- Обновил routes/termination-status.ts — использует loadTerminationStepMeta().
+- Расширил routes/admin.ts тремя эндпоинтами:
+  • GET  /api/admin/step-meta — список всех 17 шагов (8 найм + 9 увольнение) с признаком isCustomized
+  • PUT  /api/admin/step-meta/:kind/:stepType — upsert override
+  • POST /api/admin/step-meta/:kind/:stepType/reset — удалить override, вернуть дефолт
+  Все три требуют role=admin, пишут в audit_log.
+- Создал pages/admin/step-meta.tsx — админ-страница с двумя табами (Найм / Увольнение). Каждый шаг — отдельная карточка с тремя полями (Название, Кабинет, Инструкция), кнопкой «Сохранить» (активна только если есть изменения) и «Сбросить» (если есть override). Бейдж «Изменён»/«По умолчанию». Подсказки кто и когда менял.
+- Добавил экспорт customFetch из lib/api-client-react/src/index.ts (нужен для прямых fetch-вызовов к новым эндпоинтам, которых ещё нет в сгенерированном API-клиенте).
+- Добавил роут /admin/step-meta в App.tsx и пункт «Кабинеты и инструкции» в админ-меню (pages/admin/index.tsx) с иконкой MapPin.
+- Применил миграции к PGlite (новая таблица step_meta + уникальный индекс).
+- Watchdog уже перезапустил api-server — изменения подхвачены.
+- Тесты end-to-end:
+  • GET /api/admin/step-meta → 17 шагов, все customized=False ✓
+  • PUT /api/admin/step-meta/routing/hr_registration с новыми cabinet+instructions → 200 OK, isCustomized=true, updatedBy="Алексей Иванов" ✓
+  • GET /api/candidate-status/<token> — шаг HR показывает отредактированные значения («Отдел кадров, 3 этаж, комната 305» / «Принесите: паспорт, ИИН, трудовую книжку...»), остальные шаги — дефолтные ✓
+  • POST /api/admin/step-meta/routing/hr_registration/reset → 200 OK, isCustomized=false, cabinet вернулся к «Кабинет HR, 1 этаж, каб. 102» ✓
+
+Stage Summary:
+- Админ может редактировать кабинеты и инструкции для всех 17 шагов через UI: /admin/step-meta
+- Изменения сразу видны кандидатам/сотрудникам на публичных статус-страницах (без перезапуска сервера).
+- Каждое изменение пишется в audit_log (action: update_step_meta / reset_step_meta).
+- Кнопка «Сбросить» возвращает дефолтное значение.
+- Дефолтные значения остаются захардкожены в lib/routingStepMeta.ts и lib/terminationStepMeta.ts — это baseline, который виден пока админ ничего не менял.
