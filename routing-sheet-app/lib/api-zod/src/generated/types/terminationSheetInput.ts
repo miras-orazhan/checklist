@@ -10,5 +10,7 @@ export interface TerminationSheetInput {
   employeeFullName: string;
   branchId: number;
   positionId: number;
+  email?: string;
+  iin?: string;
   terminationDate: Date;
 }

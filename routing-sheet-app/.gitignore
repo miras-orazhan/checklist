@@ -1,49 +1,53 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# Dependencies
+node_modules/
+.pnpm-store/
 
-# compiled output
-dist
-tmp
-out-tsc
+# Build output
+dist/
+build/
+.vite/
 *.tsbuildinfo
-.expo
-.expo-shared
 
-# dependencies
-node_modules
+# Environment variables — NEVER commit real secrets
+.env
+.env.local
+.env.production
+.env.*.local
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# Database files (PGlite dev data)
+*.db
+*.db-journal
+db/
+home/z/my-project/db/
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+# Photos (local dev storage)
+photos/
 
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
+# Logs
+*.log
+logs/
+tmp/
 
-# System Files
+# OS files
 .DS_Store
 Thumbs.db
 
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Vercel
+.vercel/
 
 # Replit
-.cache/
-.local/
+.replit
+META-INF/
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.bak

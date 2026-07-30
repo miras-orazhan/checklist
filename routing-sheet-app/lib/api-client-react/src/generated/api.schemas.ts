@@ -337,9 +337,18 @@ export interface RoutingSheetDetail {
 
 export interface CandidateDetail {
   id: number;
+  lastName: string;
+  firstName: string;
+  /** @nullable */
+  middleName?: string | null;
   fullName: string;
   email: string;
   phone: string;
+  iin: string;
+  /** @nullable — ISO date string, derived from IIN */
+  birthDate?: string | null;
+  /** @nullable — 'male' | 'female', derived from IIN */
+  gender?: 'male' | 'female' | null;
   /** @nullable */
   experience?: string | null;
   /** @nullable */
@@ -520,6 +529,8 @@ export const CandidateStepStatusStatus = {
 export interface CandidateStepStatus {
   stepType: string;
   label: string;
+  cabinet?: string;
+  instructions?: string;
   status: CandidateStepStatusStatus;
 }
 
@@ -592,6 +603,8 @@ export interface TerminationSheetInput {
   employeeFullName: string;
   branchId: number;
   positionId: number;
+  email?: string;
+  iin?: string;
   terminationDate: string;
 }
 

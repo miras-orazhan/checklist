@@ -5,14 +5,20 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build:vercel": "pnpm run typecheck:libs && pnpm --filter @workspace/routing-sheet run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "dev": "pnpm --filter @workspace/api-server run dev & PORT=3000 BASE_PATH=/ pnpm --filter @workspace/routing-sheet run dev",
+    "migrate": "pnpm --filter @workspace/api-server tsx src/migrate.ts",
+    "seed": "pnpm --filter @workspace/api-server tsx src/seed.ts"
   },
   "private": true,
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.1"
   },
   "devDependencies": {
+    "@types/node": "^25.3.3",
+    "@vercel/node": "^5.1.0",
     "prettier": "^3.9.6",
     "tsx": "catalog:",
     "typescript": "~5.9.3"
